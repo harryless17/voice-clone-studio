@@ -1,4 +1,9 @@
-"""Wrapper autour de F5-TTS (singleton + génération)."""
+"""Wrapper autour de Chatterbox Multilingual TTS (singleton + génération).
+
+Chatterbox (Resemble AI) est le modèle TTS SOTA open-source en 2026,
+classé 9-10/10 en qualité FR, license MIT, zero-shot voice cloning.
+Doc : https://github.com/resemble-ai/chatterbox
+"""
 from __future__ import annotations
 
 import io
@@ -15,16 +20,16 @@ _lock = threading.Lock()
 
 
 def _load_model() -> Any:
-    """Charge F5-TTS une seule fois (thread-safe)."""
+    """Charge Chatterbox Multilingual une seule fois (thread-safe)."""
     global _model
     if _model is not None:
         return _model
     with _lock:
         if _model is None:
-            # API F5-TTS 1.1.x : F5TTS(model="F5TTS_v1_Base", ...)
-            # Voir https://github.com/SWivid/F5-TTS/blob/main/src/f5_tts/api.py
-            from f5_tts.api import F5TTS  # type: ignore
-            _model = F5TTS(model="F5TTS_v1_Base")
+            import torch
+            from chatterbox.mtl_tts import ChatterboxMultilingualTTS  # type: ignore
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            _model = ChatterboxMultilingualTTS.from_pretrained(device=device)
     return _model
 
 
@@ -41,15 +46,16 @@ def generate(ref_audio_path: str, text: str, language: str = "fr") -> bytes:
 
     model = _load_model()
     try:
-        wav, sample_rate, _ = model.infer(
-            ref_file=ref_audio_path,
-            ref_text="",  # F5-TTS détecte automatiquement
-            gen_text=text,
-            remove_silence=True,
+        wav = model.generate(
+            text,
+            language_id=language,
+            audio_prompt_path=ref_audio_path,
         )
     except Exception as e:
         raise RuntimeError(f"Inférence TTS échouée: {e}") from e
 
+    # Tensor PyTorch → numpy mono 1D → bytes WAV
+    wav_np = wav.squeeze().detach().cpu().numpy()
     buf = io.BytesIO()
-    sf.write(buf, wav, sample_rate, format="WAV")
+    sf.write(buf, wav_np, model.sr, format="WAV")
     return buf.getvalue()
