@@ -685,7 +685,27 @@ Wrapper singleton. Le test réel est marqué `@pytest.mark.gpu` et sera skip hor
 - Create: `voice_studio/tts.py`
 - Create: `tests/test_tts.py`
 
-- [ ] **Step 1: Écrire le test GPU qui échoue**
+- [ ] **Step 1: Ajouter le hook de skip GPU dans `tests/conftest.py`**
+
+Ajouter à la fin de `tests/conftest.py` :
+
+```python
+def pytest_collection_modifyitems(config, items):
+    """Skip les tests GPU si torch.cuda n'est pas dispo."""
+    try:
+        import torch
+        has_gpu = torch.cuda.is_available()
+    except ImportError:
+        has_gpu = False
+
+    if not has_gpu:
+        skip_gpu = pytest.mark.skip(reason="GPU non disponible")
+        for item in items:
+            if "gpu" in item.keywords:
+                item.add_marker(skip_gpu)
+```
+
+- [ ] **Step 2: Écrire le test GPU qui échoue**
 
 ```python
 import io
@@ -727,15 +747,15 @@ def test_generate_respects_length(ref_audio):
     assert 2.0 <= duration <= 10.0
 ```
 
-- [ ] **Step 2: Run — skip attendu hors Colab**
+- [ ] **Step 3: Run — SKIPPED attendu hors Colab**
 
 ```bash
-pytest tests/test_tts.py -m gpu
+pytest tests/test_tts.py
 ```
 
-Expected hors GPU: les tests sont collectés mais vont échouer faute de GPU/modèle. C'est OK — on marquera le skip dans Step 3.
+Expected hors GPU : les 2 tests sont collectés et marqués `SKIPPED` (GPU non disponible). Sur Colab avec GPU, ils vont FAIL (`tts.generate` pas encore implémenté).
 
-- [ ] **Step 3: Implémenter `voice_studio/tts.py`**
+- [ ] **Step 4: Implémenter `voice_studio/tts.py`**
 
 ```python
 """Wrapper autour de F5-TTS (singleton + génération)."""
@@ -794,27 +814,7 @@ def generate(ref_audio_path: str, text: str, language: str = "fr") -> bytes:
     return buf.getvalue()
 ```
 
-- [ ] **Step 4: Skip gracieusement hors GPU**
-
-Éditer le pytest.ini pour skip automatiquement les tests `@pytest.mark.gpu` si la GPU n'est pas dispo. Ajouter dans `tests/conftest.py` :
-
-```python
-def pytest_collection_modifyitems(config, items):
-    """Skip les tests GPU si torch.cuda n'est pas dispo."""
-    try:
-        import torch
-        has_gpu = torch.cuda.is_available()
-    except ImportError:
-        has_gpu = False
-
-    if not has_gpu:
-        skip_gpu = pytest.mark.skip(reason="GPU non disponible")
-        for item in items:
-            if "gpu" in item.keywords:
-                item.add_marker(skip_gpu)
-```
-
-- [ ] **Step 5: Run — les tests GPU doivent skip hors Colab, les autres pass**
+- [ ] **Step 5: Run — la suite complète**
 
 ```bash
 pytest
@@ -1062,6 +1062,19 @@ Remplacer la section `# Events seront câblés dans Task 10` et `app._components
         )
 
         # --- Event: generate ---
+        import re as _re
+
+        def _sanitize_text(text: str) -> tuple[str, float]:
+            """Strippe emojis et caractères non-TTS-friendly.
+
+            Retourne (texte_nettoyé, ratio_strippé).
+            """
+            # Garde lettres (accentuées incl.), chiffres, ponctuation FR courante, espaces
+            cleaned = _re.sub(r"[^\w\s.,;:!?'\"\-–—()«»À-ɏ]", "", text, flags=_re.UNICODE)
+            original_len = max(len(text), 1)
+            stripped = (original_len - len(cleaned)) / original_len
+            return cleaned.strip(), stripped
+
         def on_generate(voice_id, text):
             from voice_studio import tts, voices as voices_mod
             if not text or not text.strip():
@@ -1071,9 +1084,16 @@ Remplacer la section `# Events seront câblés dans Task 10` et `app._components
             if not voice_id:
                 raise gr.Error("Sélectionne une voix")
 
+            # Sanitization (spec §9 : stripping silencieux, warning si > 20%)
+            cleaned_text, stripped_ratio = _sanitize_text(text)
+            if not cleaned_text:
+                raise gr.Error("Le texte ne contient aucun caractère supporté")
+            if stripped_ratio > 0.2:
+                gr.Warning(f"⚠️ {int(stripped_ratio * 100)}% du texte a été strippé (emojis / caractères spéciaux)")
+
             voice = voices_mod.get_by_id(voice_id)
             try:
-                audio_bytes = tts.generate(voice.audio_path, text, language=config.LANGUAGE)
+                audio_bytes = tts.generate(voice.audio_path, cleaned_text, language=config.LANGUAGE)
             except RuntimeError as e:
                 raise gr.Error(f"Génération échouée : {e}")
 
@@ -1113,11 +1133,19 @@ Remplacer la section `# Events seront câblés dans Task 10` et `app._components
 
             ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             filename = f"{ts}_{voice_name}.wav"
-            try:
-                path = drive_mod.save_output(audio_bytes, filename)
-                return gr.Markdown(f"✅ Sauvé dans Drive : `{filename}`", visible=True)
-            except Exception as e:
-                return gr.Markdown(f"❌ Sauvegarde échouée : {e}", visible=True)
+            # Spec §8 : si le save échoue, remount + retry une fois
+            for attempt in (1, 2):
+                try:
+                    drive_mod.save_output(audio_bytes, filename)
+                    return gr.Markdown(f"✅ Sauvé dans Drive : `{filename}`", visible=True)
+                except Exception as e:
+                    if attempt == 1:
+                        try:
+                            drive_mod.mount()
+                            continue
+                        except Exception:
+                            pass
+                    return gr.Markdown(f"❌ Sauvegarde échouée : {e}", visible=True)
 
         save_drive_btn.click(
             on_save_drive,
