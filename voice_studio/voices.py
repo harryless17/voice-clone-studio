@@ -59,13 +59,21 @@ def _unique_name(desired: str) -> str:
     return f"{desired}_{i}"
 
 
+def _format_size(num_bytes: int) -> str:
+    if num_bytes >= 1024 * 1024:
+        return f"{num_bytes / (1024 * 1024):.1f} Mo"
+    if num_bytes >= 1024:
+        return f"{num_bytes / 1024:.1f} Ko"
+    return f"{num_bytes} o"
+
+
 def add_uploaded(audio_bytes: bytes, name: str) -> Voice:
     """Valide et stocke une voix uploadée dans VOICES_DIR."""
     # Validation taille
     if len(audio_bytes) > config.MAX_UPLOAD_BYTES:
         raise ValueError(
-            f"Fichier trop gros ({len(audio_bytes) // 1024 // 1024} Mo), "
-            f"max {config.MAX_UPLOAD_BYTES // 1024 // 1024} Mo"
+            f"Fichier trop gros ({_format_size(len(audio_bytes))}), "
+            f"max {_format_size(config.MAX_UPLOAD_BYTES)}"
         )
 
     # Validation format + durée via soundfile
