@@ -25,6 +25,8 @@ Thumbs.db
 # Samples audio lourds stockés en local (les petits samples < 5 Mo restent versionnés)
 *.mp3
 *.m4a
+!voices/*.mp3
+!voices/*.m4a
 voices/*.large.wav
 
 # Caches F5-TTS locaux
