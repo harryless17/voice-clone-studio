@@ -7,9 +7,8 @@ Tourne dans Google Colab (GPU gratuite), interface web Gradio, aucune installati
 
 ## Lancer le notebook
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/USER/voice-clone-studio/blob/main/notebook.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/harryless17/voice-clone-studio/blob/main/notebook.ipynb)
 
-<!-- TODO: remplacer USER par le vrai username GitHub avant le premier partage -->
 
 ## Pour l'utilisateur final
 
@@ -27,7 +26,7 @@ Les audios générés peuvent être téléchargés directement ou sauvés sur to
 ### Setup initial
 
 ```bash
-git clone https://github.com/USER/voice-clone-studio.git
+git clone https://github.com/harryless17/voice-clone-studio.git
 cd voice-clone-studio
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
