@@ -12,9 +12,10 @@ Ce dossier contient les échantillons audio utilisés comme presets par défaut 
 
 ## Presets actuels
 
-- `zidane.wav` — extrait d'interview post-match (10s) *[à sourcer manuellement]*
-- `jamel.wav` — extrait de stand-up (12s) *[à sourcer manuellement]*
+Aucun preset livré avec le repo. L'outil démarre vide — l'utilisateur uploade sa première voix lui-même via l'interface (radio "Uploader une nouvelle"). Quand il n'y a pas de voix, l'UI bascule automatiquement sur ce mode au chargement.
+
+Tu peux ajouter des presets plus tard en suivant les étapes ci-dessus.
 
 ## Considérations légales
 
-Ces échantillons sont inclus à des fins de démonstration (fair-use). L'utilisateur final est responsable de l'usage qu'il fait des clones générés.
+Si tu ajoutes des presets de personnes publiques, tu es responsable de leur usage. Privilégie des sources avec licence permissive (Common Voice de Mozilla, archives publiques) pour éviter les problèmes de droit voisin / copyright.

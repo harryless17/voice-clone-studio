@@ -255,20 +255,33 @@ def build_app() -> gr.Blocks:
             outputs=[save_status],
         )
 
-        # --- Load initial : populate dropdown puis fire preview sur la 1ère voix ---
+        # --- Load initial : si aucune voix, bascule direct sur l'upload ---
         def _initial_load():
             from voice_studio import voices as voices_mod
             all_voices = voices_mod.list_all()
             if not all_voices:
-                return gr.Dropdown(choices=[], value=None), None
+                return (
+                    gr.Radio(value="Uploader une nouvelle"),
+                    gr.Group(visible=True),
+                    gr.Dropdown(choices=[], value=None, visible=False),
+                    gr.Audio(value=None, visible=False),
+                )
             first = all_voices[0]
-            dropdown = gr.Dropdown(
-                choices=[(v.name, v.id) for v in all_voices],
-                value=first.id,
+            return (
+                gr.Radio(value="Préchargée"),
+                gr.Group(visible=False),
+                gr.Dropdown(
+                    choices=[(v.name, v.id) for v in all_voices],
+                    value=first.id,
+                    visible=True,
+                ),
+                gr.Audio(value=first.audio_path, visible=True),
             )
-            return dropdown, first.audio_path
 
-        app.load(_initial_load, outputs=[voice_dropdown, voice_preview])
+        app.load(
+            _initial_load,
+            outputs=[voice_mode, upload_group, voice_dropdown, voice_preview],
+        )
 
     return app
 
