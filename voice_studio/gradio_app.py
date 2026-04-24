@@ -82,10 +82,15 @@ CSS = """
     --radius-xl: 18px !important;
 }
 
-body {
+/* --- RESET & OVERFLOW CONTROL --- */
+html, body {
     background: var(--bg-black) !important;
     font-family: 'Instrument Sans', system-ui, sans-serif !important;
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
 }
+*, *::before, *::after { box-sizing: border-box; }
 
 /* Grain noise overlay — ambiance "tape" */
 body::before {
@@ -106,19 +111,25 @@ body::after {
     top: -200px;
     left: 50%;
     transform: translateX(-50%);
-    width: 600px;
-    height: 600px;
+    width: min(600px, 90vw);
+    height: min(600px, 90vw);
     background: radial-gradient(circle, rgba(232, 165, 74, 0.12) 0%, transparent 60%);
     pointer-events: none;
     z-index: 0;
 }
 
 .gradio-container {
-    max-width: 780px !important;
+    max-width: min(780px, 100%) !important;
+    width: 100% !important;
     margin: 0 auto !important;
     padding: 2.5rem 1.25rem 3rem !important;
     position: relative;
     z-index: 1;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+}
+.gradio-container > *, .gradio-container .main {
+    max-width: 100% !important;
 }
 
 /* --- HEADER --- */
@@ -228,12 +239,17 @@ button.primary:active:not(:disabled), #generate-btn:active:not(:disabled) {
     transform: translateY(0) !important;
 }
 button.primary:disabled, #generate-btn:disabled {
-    opacity: 0.25 !important;
-    cursor: not-allowed !important;
-    filter: grayscale(0.6);
     background: var(--bg-elevated) !important;
     color: var(--text-dim) !important;
-    box-shadow: none !important;
+    cursor: not-allowed !important;
+    box-shadow: inset 0 0 0 1px var(--border) !important;
+    border: none !important;
+    opacity: 1 !important;
+}
+button.primary:disabled::before, #generate-btn:disabled::before {
+    content: '↓ ';
+    color: var(--text-dim);
+    margin-right: 0.4em;
 }
 
 /* Secondary buttons */
@@ -252,12 +268,67 @@ button.secondary:hover:not(:disabled) {
     color: var(--amber-glow) !important;
 }
 
-/* Radio buttons — "switch de console" */
+/* Radio buttons — "switch de console" plus discrets en selected */
 .gradio-container input[type="radio"] + span,
 fieldset label {
     padding: 0.5rem 1rem !important;
     border-radius: 10px !important;
     transition: all 0.2s ease !important;
+}
+fieldset label.selected, fieldset label:has(input:checked) {
+    background: rgba(232, 165, 74, 0.08) !important;
+    border-color: var(--amber-dim) !important;
+    color: var(--amber-glow) !important;
+}
+fieldset label.selected input[type="radio"],
+fieldset label:has(input:checked) input[type="radio"] {
+    accent-color: var(--amber) !important;
+}
+
+/* --- Dropdown : hide the native chevron (Gradio en dessine déjà une) --- */
+.gradio-container select {
+    background-image: none !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+}
+.gradio-container [data-testid="dropdown"] .wrap-inner {
+    padding-right: 2.5rem !important;
+}
+
+/* --- Slider : champ numérique visible, reset button caché --- */
+.gradio-container .slider_input input[type="number"] {
+    background: var(--bg-input) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--amber) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.85rem !important;
+    padding: 0.3rem 0.5rem !important;
+    border-radius: 6px !important;
+    min-width: 60px !important;
+}
+.gradio-container .reset-button, .gradio-container button[aria-label*="reset"] {
+    display: none !important;
+}
+/* Valeurs min/max du slider : formatage propre */
+.gradio-container .slider-display, .gradio-container .min-max {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.7rem !important;
+    color: var(--text-dim) !important;
+}
+
+/* --- Audio : cacher la mini-flèche download du composant preview --- */
+.gradio-container #voice-preview button[aria-label*="Download"],
+.gradio-container #voice-preview a[download],
+.gradio-container .preview-audio button[aria-label*="Download"],
+.gradio-container .preview-audio a[download] {
+    display: none !important;
+}
+
+/* --- Audio players : responsive width --- */
+.gradio-container audio, .gradio-container .audio {
+    width: 100% !important;
+    max-width: 100% !important;
 }
 
 /* Accordions */
@@ -275,57 +346,82 @@ fieldset label {
     color: var(--amber) !important;
 }
 
-/* --- TEMPLATES chips --- */
+/* --- TEMPLATES chips : grid 2x2 sur mobile, ligne sur desktop --- */
 .templates-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 0.6rem;
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
+    gap: 0.5rem !important;
+    margin-bottom: 0.8rem !important;
+    width: 100% !important;
 }
-.template-chip {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem !important;
-    letter-spacing: 0.08em !important;
+.template-chip, .template-chip button {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.68rem !important;
+    letter-spacing: 0.06em !important;
     text-transform: uppercase !important;
-    padding: 0.4rem 0.8rem !important;
+    padding: 0.55rem 0.6rem !important;
     background: var(--bg-elevated) !important;
     border: 1px solid var(--border) !important;
     border-radius: 100px !important;
     color: var(--text-secondary) !important;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.2s ease !important;
     min-height: auto !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    font-weight: 500 !important;
+    width: 100% !important;
 }
-.template-chip:hover {
+.template-chip:hover, .template-chip button:hover {
     border-color: var(--border-hot) !important;
     color: var(--amber) !important;
     background: var(--bg-card) !important;
+    transform: translateY(-1px);
 }
 
 /* --- HISTORY --- */
 .history-title {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--text-secondary);
-    margin: 2rem 0 0.8rem;
+    font-family: 'Fraunces', serif;
+    font-size: 1.3rem;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--amber);
+    margin: 2.5rem 0 1rem;
     display: flex;
-    align-items: center;
-    gap: 0.6rem;
+    align-items: baseline;
+    gap: 0.8rem;
+    font-variation-settings: "SOFT" 100, "WONK" 1;
+}
+.history-title .ornament {
+    color: var(--amber-dim);
+    font-size: 0.7rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace;
+    font-style: normal;
 }
 .history-title::after {
     content: '';
     flex: 1;
     height: 1px;
-    background: linear-gradient(90deg, var(--border), transparent);
+    background: linear-gradient(90deg, var(--border-hot) 0%, transparent 100%);
+    align-self: center;
 }
 .history-empty {
     text-align: center;
-    padding: 2rem;
+    padding: 2.5rem 1rem;
     color: var(--text-dim);
-    font-style: italic;
     font-family: 'Fraunces', serif;
+    font-size: 1rem;
+    line-height: 1.5;
+    border: 1px dashed var(--border);
+    border-radius: 14px;
+    background: rgba(232, 165, 74, 0.02);
+}
+.history-empty em {
+    font-style: italic;
+    color: var(--amber-dim);
 }
 .history-list {
     display: flex;
@@ -375,6 +471,21 @@ fieldset label {
 /* --- RESULT area --- */
 .result-wrap { position: relative; }
 .result-wrap audio { filter: sepia(0.25) saturate(1.1); }
+
+/* Empty state audio : icône ♪ par défaut trop triste, on la rehausse */
+.gradio-container .audio-container .empty {
+    font-family: 'Fraunces', serif !important;
+    font-style: italic !important;
+    color: var(--text-dim) !important;
+    padding: 2rem 1rem !important;
+}
+
+/* Row des boutons d'action sous le résultat : wrap propre sur mobile */
+.result-wrap .form-container + div > .button,
+.result-wrap button {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+}
 
 /* Info text */
 .block-info, [class*="info"] {
@@ -456,9 +567,41 @@ fieldset label {
     }
 }
 
-/* Footer Gradio — on le discrétise */
-footer { opacity: 0.3; font-size: 0.75rem !important; }
-footer:hover { opacity: 0.6; }
+/* Footer Gradio natif — on le masque, on a notre custom */
+footer { display: none !important; }
+
+/* --- Custom footer --- */
+.custom-footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    text-align: center;
+    position: relative;
+}
+.footer-ornament {
+    color: var(--amber-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.5em;
+    margin-bottom: 0.8rem;
+    opacity: 0.7;
+}
+.footer-text {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    letter-spacing: 0.01em;
+}
+.footer-text strong {
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-style: normal;
+    letter-spacing: 0.02em;
+}
+.footer-heart {
+    display: inline-block;
+    animation: splash-heartbeat 1.8s ease-in-out infinite;
+}
 """
 
 
@@ -494,13 +637,24 @@ def _prune_history_tmps(active_paths: list[str]) -> None:
     _history_paths = list(active_paths)
 
 
+_HISTORY_HEADING = (
+    "<div class='history-title'>"
+    "<span class='ornament'>mixtape</span>"
+    "Dernières pistes"
+    "</div>"
+)
+
+
 def _render_history_html(history: list[dict]) -> str:
     """Rend la liste d'historique en HTML avec <audio> players natifs."""
     if not history:
-        return """
-        <div class='history-title'>▸ Dernières pistes</div>
-        <div class='history-empty'>Pas encore de génération dans cette session.<br>Lance-toi 🎤</div>
-        """
+        return (
+            _HISTORY_HEADING
+            + "<div class='history-empty'>"
+              "Rien dans la mixtape pour le moment.<br>"
+              "<em>Tes pistes s'accumuleront ici au fur et à mesure.</em>"
+              "</div>"
+        )
     items = []
     for entry in history:
         items.append(
@@ -518,8 +672,8 @@ def _render_history_html(history: list[dict]) -> str:
             """
         )
     return (
-        "<div class='history-title'>▸ Dernières pistes</div>"
-        f"<div class='history-list'>{''.join(items)}</div>"
+        _HISTORY_HEADING
+        + f"<div class='history-list'>{''.join(items)}</div>"
     )
 
 
@@ -576,6 +730,10 @@ def build_app() -> gr.Blocks:
                 label="Aperçu",
                 interactive=False,
                 visible=True,
+                elem_id="voice-preview",
+                elem_classes=["preview-audio"],
+                show_download_button=False,
+                show_share_button=False,
             )
             with gr.Group(visible=False) as upload_group:
                 upload_name = gr.Textbox(label="Nom de la voix", placeholder="ex: mbappe")
@@ -888,6 +1046,19 @@ def build_app() -> gr.Blocks:
         app.load(
             _initial_load,
             outputs=[voice_mode, upload_group, voice_dropdown, voice_preview],
+        )
+
+        # --- Footer custom ---
+        gr.HTML(
+            """
+            <div class='custom-footer'>
+              <div class='footer-ornament'>·&nbsp;·&nbsp;·</div>
+              <div class='footer-text'>
+                Voice Studio — fait avec <span class='footer-heart'>❤️</span>
+                par <strong>Aghiles A MANSEUR</strong>
+              </div>
+            </div>
+            """
         )
 
     return app
