@@ -95,8 +95,12 @@ Chaque module a une responsabilité unique et une interface publique claire. Pas
 Constantes centralisées.
 
 ```python
+import os
+
 GRADIO_USERNAME: str = "friend"
-GRADIO_PASSWORD: str = "<injecté via env var ou literal>"
+GRADIO_PASSWORD: str = os.environ.get("VOICE_STUDIO_PASSWORD", "")
+# si vide au lancement → fail-fast dans gradio_app.launch()
+
 DRIVE_ROOT: str = "/content/drive/MyDrive/VoiceClone"
 OUTPUTS_DIR: str = f"{DRIVE_ROOT}/outputs"
 VOICES_DIR: str = f"{DRIVE_ROOT}/voices"      # voix uploadées
@@ -107,6 +111,8 @@ MAX_UPLOAD_BYTES: int = 50 * 1024 * 1024      # 50 Mo
 MIN_VOICE_DURATION_SEC: float = 3.0
 LANGUAGE: str = "fr"
 ```
+
+Le password est lu depuis la variable d'environnement `VOICE_STUDIO_PASSWORD`, injectée via une cellule Colab cachée ou les secrets Colab (`userdata.get()`). `launch()` lève une erreur claire si vide.
 
 ### 5.2 `voice_studio/tts.py`
 
@@ -146,9 +152,11 @@ def load_presets() -> None                         # appelé par la cellule 4 du
 ```
 
 Règles :
-- `add_uploaded` valide : format audio, taille, durée ≥ `MIN_VOICE_DURATION_SEC`
+- `add_uploaded` valide : format audio (via `soundfile.info()`), taille ≤ `MAX_UPLOAD_BYTES`, durée ≥ `MIN_VOICE_DURATION_SEC`
 - Nom dupliqué → suffixe auto (`mbappe`, `mbappe_2`)
 - Les voix uploadées sont stockées dans `DRIVE_ROOT/voices/` → persistent entre sessions
+
+La bibliothèque `soundfile` (déjà une dépendance transitive de F5-TTS) est utilisée pour : lire la durée, valider le format, et vérifier les headers WAV dans les tests.
 
 ### 5.4 `voice_studio/drive.py`
 
@@ -226,7 +234,7 @@ Une colonne, tient à l'écran sans scroll. Dark mode par défaut.
 
 ### 7.1 UX attendue
 
-- **Preview 2s auto** de la voix sélectionnée (évite les surprises)
+- **Preview 2s auto** de la voix sélectionnée : les 2 premières secondes du fichier de référence, clippées live côté client via l'élément `<audio>` (pas de pré-clipping côté serveur)
 - **Compteur live** des caractères
 - **Bouton Générer désactivé** si texte vide ou > 500 chars
 - **Toasts non-bloquantes** pour les erreurs (rouge) et warnings (jaune)
@@ -265,6 +273,7 @@ Tests minimalistes mais présents, lancés via `pytest tests/` en local.
 - `test_duplicate_name_gets_suffix` — deux "mbappe" → `mbappe` et `mbappe_2`
 - `test_reject_non_audio_file` — upload d'un `.txt` lève `ValueError`
 - `test_reject_too_short_audio` — upload d'un audio de 1s lève `ValueError`
+- `test_reject_too_large_upload` — upload > `MAX_UPLOAD_BYTES` lève `ValueError`
 
 ### `tests/test_tts.py` (avec GPU, skip si indisponible)
 
