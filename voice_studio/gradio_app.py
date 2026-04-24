@@ -34,6 +34,15 @@ def _log_errors(fn):
 CSS = """
 .title { text-align: center; font-size: 2em; margin-bottom: 0.2em; }
 .subtitle { text-align: center; color: #888; margin-bottom: 1em; }
+.credit {
+    text-align: center;
+    color: #666;
+    font-size: 0.85em;
+    margin-top: 2.5em;
+    padding-top: 1em;
+    border-top: 1px solid #333;
+}
+.credit a { color: #888; text-decoration: none; }
 #generate-btn { min-height: 60px; font-size: 1.1em; }
 """
 
@@ -44,15 +53,15 @@ _last_tmp: dict = {"path": None}
 
 def build_app() -> gr.Blocks:
     with gr.Blocks(
-        title="Voice Clone Studio",
+        title="Le Studio Vocal de Nordine",
         theme=gr.themes.Base(
             primary_hue="rose",
             neutral_hue="slate",
         ),
         css=CSS,
     ) as app:
-        gr.HTML("<div class='title'>🎤 Voice Clone Studio</div>")
-        gr.HTML("<div class='subtitle'>Génère des audios TikTok avec n'importe quelle voix</div>")
+        gr.HTML("<div class='title'>🎤 Le Studio Vocal de Nordine</div>")
+        gr.HTML("<div class='subtitle'>Clone n'importe quelle voix pour tes TikToks</div>")
 
         # --- Bloc Voix ---
         with gr.Group():
@@ -332,6 +341,11 @@ def build_app() -> gr.Blocks:
             outputs=[voice_mode, upload_group, voice_dropdown, voice_preview],
         )
 
+        # --- Footer ---
+        gr.HTML(
+            "<div class='credit'>Fait avec ❤️ par <strong>Aghiles A MANSEUR</strong></div>"
+        )
+
     return app
 
 
@@ -349,7 +363,7 @@ def launch(password: str | None = None) -> None:
     app.launch(
         share=True,
         auth=(config.GRADIO_USERNAME, effective_password),
-        auth_message="Entre tes identifiants pour accéder à Voice Clone Studio",
+        auth_message="Entre tes identifiants pour accéder à ton studio",
         show_error=True,  # expose les tracebacks des handlers dans l'UI
         debug=True,       # active les logs verbeux dans la cellule Colab
         # Gradio refuse par défaut de servir des fichiers hors cwd/tmp.
