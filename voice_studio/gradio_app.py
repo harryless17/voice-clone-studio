@@ -95,10 +95,10 @@ def build_app() -> gr.Blocks:
             speed_slider = gr.Slider(
                 minimum=0.7,
                 maximum=1.3,
-                value=0.9,
+                value=1.0,
                 step=0.05,
                 label="Vitesse de lecture",
-                info="1.0 = naturel · < 1.0 = ralenti · > 1.0 = accéléré",
+                info="1.0 = naturel (pas de post-process) · < 1.0 = ralenti · > 1.0 = accéléré",
             )
 
         # --- Bouton Générer (disabled tant que le texte n'est pas valide) ---
