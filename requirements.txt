@@ -4,7 +4,7 @@ soundfile>=0.12
 numpy>=1.26
 
 # TTS
-f5-tts>=0.3,<0.5
+f5-tts>=1.1.0,<2.0
 
 # Testing (dev only, mais pas grave de l'avoir dans Colab)
 pytest>=8.0

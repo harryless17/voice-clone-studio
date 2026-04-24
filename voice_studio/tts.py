@@ -21,9 +21,10 @@ def _load_model() -> Any:
         return _model
     with _lock:
         if _model is None:
-            # F5-TTS expose une API simple via l'objet F5TTS
+            # API F5-TTS 1.1.x : F5TTS(model="F5TTS_v1_Base", ...)
+            # Voir https://github.com/SWivid/F5-TTS/blob/main/src/f5_tts/api.py
             from f5_tts.api import F5TTS  # type: ignore
-            _model = F5TTS(model_type="F5-TTS", vocoder_name="vocos")
+            _model = F5TTS(model="F5TTS_v1_Base")
     return _model
 
 
