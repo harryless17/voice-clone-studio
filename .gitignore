@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets & local env
+.env
+.env.local
+
+# Notebook outputs (on commit le .ipynb avec outputs vidés)
+.ipynb_checkpoints/
+
+# Samples audio lourds stockés en local (les petits samples < 5 Mo restent versionnés)
+*.mp3
+*.m4a
+voices/*.large.wav
+
+# Caches F5-TTS locaux
+.cache/
+models/
