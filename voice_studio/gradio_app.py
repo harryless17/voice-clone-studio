@@ -65,8 +65,13 @@ def build_app() -> gr.Blocks:
             )
             char_count = gr.Markdown(f"0/{config.MAX_TEXT_LENGTH} caractères")
 
-        # --- Bouton Générer ---
-        generate_btn = gr.Button("🎙️ Générer l'audio", variant="primary", elem_id="generate-btn")
+        # --- Bouton Générer (disabled tant que le texte n'est pas valide) ---
+        generate_btn = gr.Button(
+            "🎙️ Générer l'audio",
+            variant="primary",
+            elem_id="generate-btn",
+            interactive=False,
+        )
 
         # --- Bloc Résultat ---
         with gr.Group():
@@ -118,21 +123,23 @@ def build_app() -> gr.Blocks:
             outputs=[voice_preview],
         )
 
-        # --- Event: char count live ---
+        # --- Event: char count live + toggle du bouton Générer ---
         def on_text_change(text):
             count = len(text or "")
             color = "red" if count > config.MAX_TEXT_LENGTH else "inherit"
-            return f"<span style='color:{color}'>{count}/{config.MAX_TEXT_LENGTH} caractères</span>"
+            label = f"<span style='color:{color}'>{count}/{config.MAX_TEXT_LENGTH} caractères</span>"
+            is_valid = 0 < count <= config.MAX_TEXT_LENGTH and bool((text or "").strip())
+            return label, gr.Button(interactive=is_valid)
 
-        text_input.change(on_text_change, inputs=[text_input], outputs=[char_count])
+        text_input.change(on_text_change, inputs=[text_input], outputs=[char_count, generate_btn])
 
         # --- Event: upload ---
         def on_upload(file_obj, name):
             from voice_studio import voices as voices_mod
             if not file_obj:
-                return gr.Markdown("⚠️ Choisis un fichier", visible=True), gr.Dropdown()
+                return gr.Markdown("⚠️ Choisis un fichier", visible=True), gr.update()
             if not name or not name.strip():
-                return gr.Markdown("⚠️ Donne un nom à la voix", visible=True), gr.Dropdown()
+                return gr.Markdown("⚠️ Donne un nom à la voix", visible=True), gr.update()
             try:
                 with open(file_obj.name, "rb") as f:
                     audio_bytes = f.read()
@@ -142,7 +149,7 @@ def build_app() -> gr.Blocks:
                     _refresh_voice_list(),
                 )
             except ValueError as e:
-                return gr.Markdown(f"❌ {e}", visible=True), gr.Dropdown()
+                return gr.Markdown(f"❌ {e}", visible=True), gr.update()
 
         upload_btn.click(
             on_upload,
@@ -158,7 +165,7 @@ def build_app() -> gr.Blocks:
 
             Retourne (texte_nettoyé, ratio_strippé).
             """
-            cleaned = _re.sub(r"[^\w\s.,;:!?'\"\-–—()«»À-ɏ]", "", text, flags=_re.UNICODE)
+            cleaned = _re.sub(r"[^\w\s.,;:!?'\"\-–—…()«»‘’“”]", "", text, flags=_re.UNICODE)
             original_len = max(len(text), 1)
             stripped = (original_len - len(cleaned)) / original_len
             return cleaned.strip(), stripped
@@ -248,8 +255,20 @@ def build_app() -> gr.Blocks:
             outputs=[save_status],
         )
 
-        # --- Load initial ---
-        app.load(_refresh_voice_list, outputs=[voice_dropdown])
+        # --- Load initial : populate dropdown puis fire preview sur la 1ère voix ---
+        def _initial_load():
+            from voice_studio import voices as voices_mod
+            all_voices = voices_mod.list_all()
+            if not all_voices:
+                return gr.Dropdown(choices=[], value=None), None
+            first = all_voices[0]
+            dropdown = gr.Dropdown(
+                choices=[(v.name, v.id) for v in all_voices],
+                value=first.id,
+            )
+            return dropdown, first.audio_path
+
+        app.load(_initial_load, outputs=[voice_dropdown, voice_preview])
 
     return app
 
