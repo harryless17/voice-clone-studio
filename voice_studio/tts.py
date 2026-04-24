@@ -33,8 +33,19 @@ def _load_model() -> Any:
     return _model
 
 
-def generate(ref_audio_path: str, text: str, language: str = "fr") -> bytes:
+def generate(
+    ref_audio_path: str,
+    text: str,
+    language: str = "fr",
+    speed: float = 1.0,
+) -> bytes:
     """Génère un WAV (bytes) avec la voix de ref_audio_path disant text.
+
+    Parameters
+    ----------
+    speed : float
+        Multiplicateur de vitesse appliqué en post-process. 1.0 = naturel,
+        < 1.0 = ralenti, > 1.0 = accéléré. Préserve le pitch (time-stretch).
 
     Raises
     ------
@@ -54,8 +65,15 @@ def generate(ref_audio_path: str, text: str, language: str = "fr") -> bytes:
     except Exception as e:
         raise RuntimeError(f"Inférence TTS échouée: {e}") from e
 
-    # Tensor PyTorch → numpy mono 1D → bytes WAV
+    # Tensor PyTorch → numpy mono 1D
     wav_np = wav.squeeze().detach().cpu().numpy()
+
+    # Time-stretch : `rate > 1` accélère, `rate < 1` ralentit
+    # librosa utilise un phase vocoder qui préserve le pitch
+    if speed != 1.0 and 0.1 < speed < 3.0:
+        import librosa  # import lazy (gros package)
+        wav_np = librosa.effects.time_stretch(wav_np, rate=speed)
+
     buf = io.BytesIO()
     sf.write(buf, wav_np, model.sr, format="WAV")
     return buf.getvalue()

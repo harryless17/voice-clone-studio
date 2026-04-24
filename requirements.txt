@@ -2,6 +2,7 @@
 gradio>=5.0,<6.0
 soundfile>=0.12
 numpy>=1.26
+librosa>=0.10  # time-stretch post-process (ralentir l'output sans changer le pitch)
 
 # TTS — Chatterbox Multilingual (Resemble AI), SOTA open-source 2026
 # MIT license, 23 langues dont le FR, zero-shot voice cloning

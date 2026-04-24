@@ -90,6 +90,17 @@ def build_app() -> gr.Blocks:
             )
             char_count = gr.Markdown(f"0/{config.MAX_TEXT_LENGTH} caractères")
 
+        # --- Réglages de génération ---
+        with gr.Accordion("⚙️ Réglages avancés", open=False):
+            speed_slider = gr.Slider(
+                minimum=0.7,
+                maximum=1.3,
+                value=0.9,
+                step=0.05,
+                label="Vitesse de lecture",
+                info="1.0 = naturel · < 1.0 = ralenti · > 1.0 = accéléré",
+            )
+
         # --- Bouton Générer (disabled tant que le texte n'est pas valide) ---
         generate_btn = gr.Button(
             "🎙️ Générer l'audio",
@@ -201,7 +212,7 @@ def build_app() -> gr.Blocks:
             return cleaned.strip(), stripped
 
         @_log_errors
-        def on_generate(voice_id, text):
+        def on_generate(voice_id, text, speed):
             from voice_studio import tts, voices as voices_mod
             if not text or not text.strip():
                 raise gr.Error("Le texte ne peut pas être vide")
@@ -219,7 +230,12 @@ def build_app() -> gr.Blocks:
 
             voice = voices_mod.get_by_id(voice_id)
             try:
-                audio_bytes = tts.generate(voice.audio_path, cleaned_text, language=config.LANGUAGE)
+                audio_bytes = tts.generate(
+                    voice.audio_path,
+                    cleaned_text,
+                    language=config.LANGUAGE,
+                    speed=speed,
+                )
             except RuntimeError as e:
                 raise gr.Error(f"Génération échouée : {e}")
 
@@ -246,7 +262,7 @@ def build_app() -> gr.Blocks:
 
         generate_btn.click(
             on_generate,
-            inputs=[voice_dropdown, text_input],
+            inputs=[voice_dropdown, text_input, speed_slider],
             outputs=[
                 output_audio,
                 last_audio_state,
