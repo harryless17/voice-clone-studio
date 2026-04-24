@@ -1,7 +1,14 @@
-"""Construction de l'UI Gradio Voice Clone Studio."""
+"""Construction de l'UI Gradio Voice Clone Studio.
+
+Thème visuel : "Vintage Amber Console" — inspiré des consoles de mixage
+analogiques. Palette warm-dark, typographie éditoriale (Fraunces + JetBrains
+Mono), accents ambre/terracotta, grain subtil.
+"""
 from __future__ import annotations
 
 import functools
+import os
+import time
 import traceback
 
 import gradio as gr
@@ -10,17 +17,14 @@ from voice_studio import config
 
 
 def _log_errors(fn):
-    """Décorateur : imprime la traceback complète sur stdout + re-raise.
-
-    Gradio renvoie souvent juste 'Erreur' sans détails. Ce wrapper s'assure
-    que le traceback Python atterrit dans la sortie de la cellule Colab.
-    """
+    """Imprime la traceback complète sur stdout + re-raise. Gradio renvoie
+    souvent juste 'Erreur' sans détails, ce wrapper garantit qu'on voit
+    la vraie cause dans la cellule Colab."""
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         try:
             return fn(*args, **kwargs)
         except gr.Error:
-            # gr.Error est déjà prévu pour être affiché dans l'UI → ne pas polluer
             raise
         except Exception:
             print(f"\n[ERROR] handler {fn.__name__} a crashé :")
@@ -31,16 +35,360 @@ def _log_errors(fn):
     return wrapper
 
 
-CSS = """
-.title { text-align: center; font-size: 2em; margin-bottom: 0.2em; }
-.subtitle { text-align: center; color: #888; margin-bottom: 1em; }
-#generate-btn { min-height: 60px; font-size: 1.1em; }
+# ============================================================================
+# THÈME "VINTAGE AMBER CONSOLE"
+# ============================================================================
 
-/* --- Splash screen (fade auto après 3s) --- */
+CSS = """
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root, .gradio-container {
+    --bg-black: #0d0a07;
+    --bg-card: #17110b;
+    --bg-elevated: #211810;
+    --bg-input: #1c140d;
+    --amber: #e8a54a;
+    --amber-glow: #f5c878;
+    --amber-dim: #8e6a2f;
+    --crimson: #c94e33;
+    --rose: #e76f6f;
+    --text-primary: #f2ebe0;
+    --text-secondary: #c9a47a;
+    --text-dim: #7d674a;
+    --border: #2a1f14;
+    --border-hot: rgba(232, 165, 74, 0.35);
+
+    /* --- Gradio overrides --- */
+    --body-background-fill: var(--bg-black) !important;
+    --background-fill-primary: var(--bg-card) !important;
+    --background-fill-secondary: var(--bg-elevated) !important;
+    --border-color-primary: var(--border) !important;
+    --body-text-color: var(--text-primary) !important;
+    --body-text-color-subdued: var(--text-secondary) !important;
+    --color-accent: var(--amber) !important;
+    --color-accent-soft: var(--amber-glow) !important;
+    --block-background-fill: var(--bg-card) !important;
+    --block-border-width: 1px !important;
+    --block-border-color: var(--border) !important;
+    --block-label-background-fill: transparent !important;
+    --block-label-text-color: var(--text-secondary) !important;
+    --block-title-text-color: var(--text-primary) !important;
+    --input-background-fill: var(--bg-input) !important;
+    --input-border-color: var(--border) !important;
+    --input-border-color-focus: var(--amber) !important;
+    --radius-sm: 8px !important;
+    --radius-md: 12px !important;
+    --radius-lg: 14px !important;
+    --radius-xl: 18px !important;
+}
+
+body {
+    background: var(--bg-black) !important;
+    font-family: 'Instrument Sans', system-ui, sans-serif !important;
+}
+
+/* Grain noise overlay — ambiance "tape" */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 99;
+    opacity: 0.035;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Ambient glow — halo ambré diffus en haut */
+body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(232, 165, 74, 0.12) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.gradio-container {
+    max-width: 780px !important;
+    margin: 0 auto !important;
+    padding: 2.5rem 1.25rem 3rem !important;
+    position: relative;
+    z-index: 1;
+}
+
+/* --- HEADER --- */
+.studio-header { text-align: center; margin-bottom: 2rem; position: relative; }
+.studio-title {
+    font-family: 'Fraunces', serif !important;
+    font-weight: 700 !important;
+    font-size: clamp(2.2rem, 7vw, 3.6rem) !important;
+    line-height: 1 !important;
+    letter-spacing: -0.03em !important;
+    font-variation-settings: "SOFT" 50, "WONK" 1;
+    background: linear-gradient(135deg, #f5c878 0%, #e8a54a 40%, #c94e33 90%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent !important;
+    margin: 0 !important;
+}
+.studio-title em {
+    font-style: italic;
+    font-weight: 400;
+    font-variation-settings: "SOFT" 100, "WONK" 1;
+}
+.studio-sub {
+    font-family: 'Fraunces', serif !important;
+    font-style: italic !important;
+    font-weight: 300 !important;
+    font-size: clamp(0.95rem, 2.2vw, 1.2rem) !important;
+    color: var(--text-secondary) !important;
+    margin-top: 0.5rem !important;
+    letter-spacing: 0.01em;
+}
+.studio-badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--amber-dim);
+    padding: 0.3rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    margin-bottom: 1.2rem;
+    background: var(--bg-card);
+}
+
+/* --- BLOCKS / CARDS --- */
+.gradio-container > .main .block,
+.gradio-container .form {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset !important;
+}
+
+/* Labels — mono micro-caps, façon rack de studio */
+label > span,
+label > .label-wrap,
+.block-info {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.7rem !important;
+    letter-spacing: 0.18em !important;
+    text-transform: uppercase !important;
+    color: var(--text-secondary) !important;
+    font-weight: 500 !important;
+}
+
+/* Inputs */
+input[type="text"], textarea, .input-container input {
+    background: var(--bg-input) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-primary) !important;
+    font-family: 'Instrument Sans', sans-serif !important;
+    border-radius: 10px !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+    font-size: 15px !important;
+}
+input[type="text"]:focus, textarea:focus {
+    border-color: var(--amber) !important;
+    box-shadow: 0 0 0 3px rgba(232, 165, 74, 0.08) !important;
+    outline: none !important;
+}
+
+/* Primary button — bouton cuivre lumineux */
+button.primary, #generate-btn {
+    background: linear-gradient(135deg, var(--amber) 0%, var(--crimson) 100%) !important;
+    color: #1a0f04 !important;
+    font-family: 'Instrument Sans', sans-serif !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    font-size: 0.9rem !important;
+    border: none !important;
+    border-radius: 12px !important;
+    min-height: 58px !important;
+    box-shadow: 0 4px 20px -4px rgba(232, 165, 74, 0.25),
+                0 1px 0 rgba(255, 220, 170, 0.4) inset !important;
+    transition: all 0.25s ease !important;
+    position: relative;
+    overflow: hidden;
+}
+button.primary:hover:not(:disabled), #generate-btn:hover:not(:disabled) {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 28px -2px rgba(232, 165, 74, 0.4),
+                0 1px 0 rgba(255, 220, 170, 0.4) inset !important;
+}
+button.primary:active:not(:disabled), #generate-btn:active:not(:disabled) {
+    transform: translateY(0) !important;
+}
+button.primary:disabled, #generate-btn:disabled {
+    opacity: 0.25 !important;
+    cursor: not-allowed !important;
+    filter: grayscale(0.6);
+    background: var(--bg-elevated) !important;
+    color: var(--text-dim) !important;
+    box-shadow: none !important;
+}
+
+/* Secondary buttons */
+button.secondary, .gradio-container button:not(.primary):not(#generate-btn) {
+    background: var(--bg-elevated) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+    font-family: 'Instrument Sans', sans-serif !important;
+    font-weight: 500 !important;
+    font-size: 0.9rem !important;
+    transition: all 0.2s ease !important;
+}
+button.secondary:hover:not(:disabled) {
+    border-color: var(--border-hot) !important;
+    color: var(--amber-glow) !important;
+}
+
+/* Radio buttons — "switch de console" */
+.gradio-container input[type="radio"] + span,
+fieldset label {
+    padding: 0.5rem 1rem !important;
+    border-radius: 10px !important;
+    transition: all 0.2s ease !important;
+}
+
+/* Accordions */
+.gradio-container .label-wrap, details > summary {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.75rem !important;
+    letter-spacing: 0.15em !important;
+    text-transform: uppercase !important;
+    color: var(--text-secondary) !important;
+}
+
+/* Slider */
+.slider_input input[type="number"] {
+    font-family: 'JetBrains Mono', monospace !important;
+    color: var(--amber) !important;
+}
+
+/* --- TEMPLATES chips --- */
+.templates-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+}
+.template-chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    padding: 0.4rem 0.8rem !important;
+    background: var(--bg-elevated) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 100px !important;
+    color: var(--text-secondary) !important;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: auto !important;
+}
+.template-chip:hover {
+    border-color: var(--border-hot) !important;
+    color: var(--amber) !important;
+    background: var(--bg-card) !important;
+}
+
+/* --- HISTORY --- */
+.history-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin: 2rem 0 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+.history-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+}
+.history-empty {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-dim);
+    font-style: italic;
+    font-family: 'Fraunces', serif;
+}
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+.history-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.8rem 1rem;
+    transition: border-color 0.2s ease;
+}
+.history-item:hover { border-color: var(--border-hot); }
+.history-meta {
+    display: flex;
+    gap: 0.8rem;
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+    color: var(--text-dim);
+}
+.history-time { color: var(--amber-dim); }
+.history-voice { color: var(--amber); font-weight: 600; }
+.history-speed {
+    margin-left: auto;
+    padding: 0.1rem 0.5rem;
+    background: var(--bg-elevated);
+    border-radius: 4px;
+}
+.history-text {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 0.92rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+}
+.history-audio { width: 100%; height: 36px; }
+.history-audio::-webkit-media-controls-panel {
+    background: var(--bg-elevated);
+}
+
+/* --- RESULT area --- */
+.result-wrap { position: relative; }
+.result-wrap audio { filter: sepia(0.25) saturate(1.1); }
+
+/* Info text */
+.block-info, [class*="info"] {
+    color: var(--text-dim) !important;
+    font-size: 0.78rem !important;
+    font-family: 'Instrument Sans', sans-serif !important;
+    font-style: italic;
+}
+
+/* --- SPLASH SCREEN --- */
 .splash-overlay {
     position: fixed;
     inset: 0;
-    background: rgb(15, 23, 42);
+    background: var(--bg-black);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -50,25 +398,38 @@ CSS = """
     pointer-events: none;
     opacity: 0;
 }
+.splash-overlay::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(232, 165, 74, 0.18) 0%, transparent 55%);
+}
 .splash-hearts {
-    font-size: 2.5em;
-    margin-bottom: 0.3em;
+    font-size: 3em;
+    margin-bottom: 0.5em;
     animation: splash-heartbeat 1.4s ease-in-out infinite;
+    position: relative;
 }
 .splash-text {
-    font-size: 1.1em;
-    color: #cbd5e1;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 1.15em;
+    color: var(--text-secondary);
     margin-bottom: 0.3em;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.02em;
+    position: relative;
 }
 .splash-name {
-    font-size: 2.4em;
-    font-weight: 800;
-    background: linear-gradient(90deg, #f43f5e 0%, #fb7185 50%, #fda4af 100%);
+    font-family: 'Fraunces', serif;
+    font-size: clamp(1.8em, 6vw, 3em);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    background: linear-gradient(90deg, #f5c878 0%, #e8a54a 40%, #e76f6f 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    letter-spacing: 0.04em;
+    position: relative;
+    font-variation-settings: "SOFT" 50, "WONK" 1;
 }
 @keyframes splash-fade {
     0%   { opacity: 0; }
@@ -80,23 +441,104 @@ CSS = """
     0%, 100% { transform: scale(1); }
     50%      { transform: scale(1.15); }
 }
+
+/* --- MOBILE --- */
+@media (max-width: 640px) {
+    .gradio-container {
+        padding: 1.5rem 0.85rem 2.5rem !important;
+    }
+    body::after { width: 400px; height: 400px; top: -150px; }
+    .history-meta { flex-wrap: wrap; gap: 0.4rem; }
+    .history-speed { margin-left: 0; }
+    button.primary, #generate-btn {
+        font-size: 0.85rem !important;
+        min-height: 52px !important;
+    }
+}
+
+/* Footer Gradio — on le discrétise */
+footer { opacity: 0.3; font-size: 0.75rem !important; }
+footer:hover { opacity: 0.6; }
 """
 
-# Référence vers le dernier .wav temporaire servi à Gradio.
-# On ne garde qu'un seul fichier à la fois pour éviter l'accumulation en session Colab.
-_last_tmp: dict = {"path": None}
+
+# ============================================================================
+# TEMPLATES DE TEXTES
+# ============================================================================
+
+TEMPLATES = [
+    ("🎬 Intro", "Salut tout le monde, bienvenue sur ma chaîne ! Aujourd'hui on va parler de "),
+    ("🔚 Outro", "Voilà pour aujourd'hui. N'oubliez pas de liker et de vous abonner. À très vite !"),
+    ("😂 Réaction", "Attendez attendez, j'ai vu ça sur internet et je peux pas, faut que je vous le raconte."),
+    ("🎙️ Présentation", "Bonjour, je m'appelle Nordine et aujourd'hui je vais vous présenter "),
+]
+
+
+# ============================================================================
+# STATE utilitaire (tmp files alive pour l'historique)
+# ============================================================================
+
+_history_paths: list = []  # paths des tmp files en vie, cap à 5
+
+
+def _prune_history_tmps(active_paths: list[str]) -> None:
+    """Supprime les tmp qui ne sont plus référencés dans active_paths."""
+    global _history_paths
+    to_delete = [p for p in _history_paths if p not in active_paths]
+    for p in to_delete:
+        if os.path.exists(p):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+    _history_paths = list(active_paths)
+
+
+def _render_history_html(history: list[dict]) -> str:
+    """Rend la liste d'historique en HTML avec <audio> players natifs."""
+    if not history:
+        return """
+        <div class='history-title'>▸ Dernières pistes</div>
+        <div class='history-empty'>Pas encore de génération dans cette session.<br>Lance-toi 🎤</div>
+        """
+    items = []
+    for entry in history:
+        items.append(
+            f"""
+            <div class='history-item'>
+              <div class='history-meta'>
+                <span class='history-time'>{entry['time']}</span>
+                <span class='history-voice'>{entry['voice']}</span>
+                <span class='history-speed'>{entry['speed']:.2f}x</span>
+              </div>
+              <div class='history-text'>« {entry['text_preview']} »</div>
+              <audio controls preload='none' class='history-audio'
+                     src='/gradio_api/file={entry['path']}'></audio>
+            </div>
+            """
+        )
+    return (
+        "<div class='history-title'>▸ Dernières pistes</div>"
+        f"<div class='history-list'>{''.join(items)}</div>"
+    )
+
+
+# ============================================================================
+# BUILD APP
+# ============================================================================
 
 
 def build_app() -> gr.Blocks:
     with gr.Blocks(
         title="Le Studio Vocal de Nordine",
         theme=gr.themes.Base(
-            primary_hue="rose",
-            neutral_hue="slate",
+            primary_hue="orange",
+            neutral_hue="stone",
+            font=[gr.themes.GoogleFont("Instrument Sans"), "ui-sans-serif", "sans-serif"],
         ),
         css=CSS,
     ) as app:
-        # --- Splash screen (CSS-only, disparaît tout seul après ~3s) ---
+        # --- Splash ---
         gr.HTML(
             """
             <div class='splash-overlay'>
@@ -107,77 +549,103 @@ def build_app() -> gr.Blocks:
             """
         )
 
-        gr.HTML("<div class='title'>🎤 Le Studio Vocal de Nordine</div>")
-        gr.HTML("<div class='subtitle'>Clone n'importe quelle voix pour tes TikToks</div>")
+        # --- Header ---
+        gr.HTML(
+            """
+            <div class='studio-header'>
+              <div class='studio-badge'>· voice studio ·</div>
+              <h1 class='studio-title'>Le Studio Vocal<br><em>de Nordine</em></h1>
+              <div class='studio-sub'>Clone n'importe quelle voix, dis ce que tu veux.</div>
+            </div>
+            """
+        )
 
-        # --- Bloc Voix ---
+        # ----- Voix -----
         with gr.Group():
             voice_mode = gr.Radio(
                 choices=["Préchargée", "Uploader une nouvelle"],
                 value="Préchargée",
-                label="Voix",
+                label="La voix",
             )
             voice_dropdown = gr.Dropdown(
                 choices=[],
-                label="Choisir une voix",
+                label="Choisir dans ta banque",
                 visible=True,
             )
             voice_preview = gr.Audio(
-                label="Aperçu (2s)",
+                label="Aperçu",
                 interactive=False,
                 visible=True,
             )
             with gr.Group(visible=False) as upload_group:
-                upload_name = gr.Textbox(label="Nom de la voix", placeholder="mbappe")
-                upload_file = gr.File(label="Fichier audio (10-30s)", file_types=[".wav", ".mp3"])
+                upload_name = gr.Textbox(label="Nom de la voix", placeholder="ex: mbappe")
+                upload_file = gr.File(label="Fichier audio", file_types=[".wav", ".mp3"])
                 gr.Markdown(
-                    "ℹ️ **Conseils** : une seule personne, pas de musique/bruit, 10-30 secondes."
+                    "*Une seule personne, pas de musique/bruit, 10-30 secondes suffisent.*"
                 )
-                upload_btn = gr.Button("Ajouter à ma banque")
+                upload_btn = gr.Button("Ajouter à la banque")
                 upload_status = gr.Markdown(visible=False)
 
-        # --- Bloc Texte ---
+        # ----- Texte + templates -----
         with gr.Group():
+            gr.HTML("<div style='font-family:JetBrains Mono,monospace;font-size:0.7rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:0.5rem;'>Inspirations rapides</div>")
+            with gr.Row(elem_classes=["templates-row"]):
+                template_btns = [
+                    gr.Button(label, elem_classes=["template-chip"], size="sm")
+                    for label, _ in TEMPLATES
+                ]
+
             text_input = gr.Textbox(
-                label=f"Texte à générer (max {config.MAX_TEXT_LENGTH} caractères)",
+                label=f"Ton texte (max {config.MAX_TEXT_LENGTH})",
                 lines=4,
                 max_lines=8,
                 placeholder="Salut les gars, aujourd'hui on va...",
             )
-            char_count = gr.Markdown(f"0/{config.MAX_TEXT_LENGTH} caractères")
+            char_count = gr.Markdown(f"<code>0/{config.MAX_TEXT_LENGTH}</code>")
 
-        # --- Réglages de génération ---
-        with gr.Accordion("⚙️ Réglages avancés", open=False):
+        # ----- Réglages avancés -----
+        with gr.Accordion("Réglages avancés", open=False):
             speed_slider = gr.Slider(
                 minimum=0.7,
                 maximum=1.3,
                 value=1.0,
                 step=0.05,
                 label="Vitesse de lecture",
-                info="1.0 = naturel (pas de post-process) · < 1.0 = ralenti · > 1.0 = accéléré",
+                info="1.0 = naturel · < 1 = ralenti · > 1 = accéléré",
             )
 
-        # --- Bouton Générer (disabled tant que le texte n'est pas valide) ---
+        # ----- Bouton générer -----
         generate_btn = gr.Button(
-            "🎙️ Générer l'audio",
+            "Générer la piste",
             variant="primary",
             elem_id="generate-btn",
             interactive=False,
         )
 
-        # --- Bloc Résultat ---
-        with gr.Group():
-            output_audio = gr.Audio(label="Résultat", interactive=False)
+        # ----- Résultat -----
+        with gr.Group(elem_classes=["result-wrap"]):
+            output_audio = gr.Audio(label="La dernière piste", interactive=False)
             with gr.Row():
-                download_btn = gr.DownloadButton("⬇️ Télécharger", visible=False)
-                save_drive_btn = gr.Button("💾 Sauver dans Drive", visible=False)
+                regenerate_btn = gr.Button("🔄 Regénérer", visible=False, size="sm")
+                download_btn = gr.DownloadButton("⬇️ Télécharger", visible=False, size="sm")
+                save_drive_btn = gr.Button("💾 Sauver dans Drive", visible=False, size="sm")
             save_status = gr.Markdown(visible=False)
 
-        # State pour garder les bytes du dernier audio généré
+        # ----- Historique -----
+        history_html = gr.HTML(_render_history_html([]))
+
+        # States
         last_audio_state = gr.State(value=None)
         last_voice_state = gr.State(value=None)
+        last_voice_id_state = gr.State(value=None)
+        last_text_state = gr.State(value=None)
+        last_speed_state = gr.State(value=1.0)
+        history_state = gr.State(value=[])
 
-        # --- Helpers ---
+        # ====================================================================
+        # HANDLERS
+        # ====================================================================
+
         @_log_errors
         def _refresh_voice_list():
             from voice_studio import voices as voices_mod
@@ -187,7 +655,6 @@ def build_app() -> gr.Blocks:
                 value=all_voices[0].id if all_voices else None,
             )
 
-        # --- Event: toggle preset vs upload ---
         @_log_errors
         def on_mode_change(mode):
             if mode == "Préchargée":
@@ -200,7 +667,6 @@ def build_app() -> gr.Blocks:
             outputs=[upload_group, voice_dropdown, voice_preview],
         )
 
-        # --- Event: voice selection → preview ---
         @_log_errors
         def on_voice_selected(voice_id):
             if not voice_id:
@@ -218,18 +684,28 @@ def build_app() -> gr.Blocks:
             outputs=[voice_preview],
         )
 
-        # --- Event: char count live + toggle du bouton Générer ---
         @_log_errors
         def on_text_change(text):
             count = len(text or "")
-            color = "red" if count > config.MAX_TEXT_LENGTH else "inherit"
-            label = f"<span style='color:{color}'>{count}/{config.MAX_TEXT_LENGTH} caractères</span>"
+            over = count > config.MAX_TEXT_LENGTH
+            color = "var(--crimson)" if over else "var(--text-secondary)"
+            md = (
+                f"<code style='color:{color};font-size:0.75rem;"
+                f"letter-spacing:0.1em;'>{count}/{config.MAX_TEXT_LENGTH}</code>"
+            )
             is_valid = 0 < count <= config.MAX_TEXT_LENGTH and bool((text or "").strip())
-            return label, gr.Button(interactive=is_valid)
+            return md, gr.Button(interactive=is_valid)
 
         text_input.change(on_text_change, inputs=[text_input], outputs=[char_count, generate_btn])
 
-        # --- Event: upload ---
+        # Template chips → injectent le texte
+        for btn, (label, template_text) in zip(template_btns, TEMPLATES):
+            btn.click(
+                lambda tpl=template_text: tpl,
+                inputs=[],
+                outputs=[text_input],
+            )
+
         @_log_errors
         def on_upload(file_obj, name):
             from voice_studio import voices as voices_mod
@@ -254,21 +730,17 @@ def build_app() -> gr.Blocks:
             outputs=[upload_status, voice_dropdown],
         )
 
-        # --- Event: generate ---
+        # Sanitization (strippe emojis, garde la ponctuation FR)
         import re as _re
 
         def _sanitize_text(text: str) -> tuple[str, float]:
-            """Strippe emojis et caractères non-TTS-friendly.
-
-            Retourne (texte_nettoyé, ratio_strippé).
-            """
             cleaned = _re.sub(r"[^\w\s.,;:!?'\"\-–—…()«»‘’“”]", "", text, flags=_re.UNICODE)
             original_len = max(len(text), 1)
             stripped = (original_len - len(cleaned)) / original_len
             return cleaned.strip(), stripped
 
         @_log_errors
-        def on_generate(voice_id, text, speed):
+        def on_generate(voice_id, text, speed, history):
             from voice_studio import tts, voices as voices_mod
             if not text or not text.strip():
                 raise gr.Error("Le texte ne peut pas être vide")
@@ -277,12 +749,11 @@ def build_app() -> gr.Blocks:
             if not voice_id:
                 raise gr.Error("Sélectionne une voix")
 
-            # Sanitization : stripping silencieux, warning si > 20%
             cleaned_text, stripped_ratio = _sanitize_text(text)
             if not cleaned_text:
                 raise gr.Error("Le texte ne contient aucun caractère supporté")
             if stripped_ratio > 0.2:
-                gr.Warning(f"⚠️ {int(stripped_ratio * 100)}% du texte a été strippé (emojis / caractères spéciaux)")
+                gr.Warning(f"⚠️ {int(stripped_ratio * 100)}% du texte a été strippé")
 
             voice = voices_mod.get_by_id(voice_id)
             try:
@@ -295,40 +766,72 @@ def build_app() -> gr.Blocks:
             except RuntimeError as e:
                 raise gr.Error(f"Génération échouée : {e}")
 
-            import os, tempfile
-            # On ne garde qu'un seul fichier temporaire à la fois — supprime le précédent
-            prev = _last_tmp.get("path")
-            if prev and os.path.exists(prev):
-                try:
-                    os.remove(prev)
-                except OSError:
-                    pass
+            # Nouveau tmp file pour cette génération
+            import tempfile
             tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
             tmp.write(audio_bytes)
             tmp.close()
-            _last_tmp["path"] = tmp.name
+
+            # Ajoute à l'historique
+            text_preview = text[:80] + ("…" if len(text) > 80 else "")
+            new_entry = {
+                "path": tmp.name,
+                "voice": voice.name,
+                "text_preview": text_preview,
+                "time": time.strftime("%H:%M:%S"),
+                "speed": speed,
+            }
+            new_history = ([new_entry] + (history or []))[:5]
+            _prune_history_tmps([e["path"] for e in new_history])
 
             return (
-                tmp.name,
-                audio_bytes,
-                voice.name,
-                gr.DownloadButton(value=tmp.name, visible=True),
-                gr.Button(visible=True),
+                tmp.name,                                             # output_audio
+                audio_bytes,                                          # last_audio_state
+                voice.name,                                           # last_voice_state
+                voice_id,                                             # last_voice_id_state
+                text,                                                 # last_text_state
+                speed,                                                # last_speed_state
+                new_history,                                          # history_state
+                _render_history_html(new_history),                    # history_html
+                gr.Button(visible=True),                              # regenerate_btn
+                gr.DownloadButton(value=tmp.name, visible=True),      # download_btn
+                gr.Button(visible=True),                              # save_drive_btn
             )
+
+        generate_outputs = [
+            output_audio,
+            last_audio_state,
+            last_voice_state,
+            last_voice_id_state,
+            last_text_state,
+            last_speed_state,
+            history_state,
+            history_html,
+            regenerate_btn,
+            download_btn,
+            save_drive_btn,
+        ]
 
         generate_btn.click(
             on_generate,
-            inputs=[voice_dropdown, text_input, speed_slider],
-            outputs=[
-                output_audio,
-                last_audio_state,
-                last_voice_state,
-                download_btn,
-                save_drive_btn,
-            ],
+            inputs=[voice_dropdown, text_input, speed_slider, history_state],
+            outputs=generate_outputs,
         )
 
-        # --- Event: save drive ---
+        # Regénérer = rejouer avec les derniers inputs
+        @_log_errors
+        def on_regenerate(last_voice_id, last_text, last_speed, history):
+            if not last_voice_id or not last_text:
+                raise gr.Error("Rien à regénérer — fais d'abord une première génération")
+            return on_generate(last_voice_id, last_text, last_speed, history)
+
+        regenerate_btn.click(
+            on_regenerate,
+            inputs=[last_voice_id_state, last_text_state, last_speed_state, history_state],
+            outputs=generate_outputs,
+        )
+
+        # Save Drive
         @_log_errors
         def on_save_drive(audio_bytes, voice_name):
             from datetime import datetime
@@ -339,7 +842,6 @@ def build_app() -> gr.Blocks:
 
             ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             filename = f"{ts}_{voice_name}.wav"
-            # Spec §8 : si le save échoue, remount + retry une fois
             for attempt in (1, 2):
                 try:
                     drive_mod.save_output(audio_bytes, filename)
@@ -359,7 +861,7 @@ def build_app() -> gr.Blocks:
             outputs=[save_status],
         )
 
-        # --- Load initial : si aucune voix, bascule direct sur l'upload ---
+        # Load initial
         @_log_errors
         def _initial_load():
             from voice_studio import voices as voices_mod
@@ -391,6 +893,11 @@ def build_app() -> gr.Blocks:
     return app
 
 
+# ============================================================================
+# LAUNCH
+# ============================================================================
+
+
 def launch(password: str | None = None) -> None:
     """Lance l'app Gradio avec auth + share public."""
     effective_password = password or config.GRADIO_PASSWORD
@@ -406,10 +913,7 @@ def launch(password: str | None = None) -> None:
         share=True,
         auth=(config.GRADIO_USERNAME, effective_password),
         auth_message="Entre tes identifiants pour accéder à ton studio",
-        show_error=True,  # expose les tracebacks des handlers dans l'UI
-        debug=True,       # active les logs verbeux dans la cellule Colab
-        # Gradio refuse par défaut de servir des fichiers hors cwd/tmp.
-        # On autorise explicitement les dossiers Drive où vivent nos voix
-        # uploadées et nos outputs.
+        show_error=True,
+        debug=True,
         allowed_paths=[config.VOICES_DIR, config.OUTPUTS_DIR],
     )
