@@ -12,6 +12,10 @@ CSS = """
 #generate-btn { min-height: 60px; font-size: 1.1em; }
 """
 
+# Référence vers le dernier .wav temporaire servi à Gradio.
+# On ne garde qu'un seul fichier à la fois pour éviter l'accumulation en session Colab.
+_last_tmp: dict = {"path": None}
+
 
 def build_app() -> gr.Blocks:
     with gr.Blocks(
@@ -181,10 +185,18 @@ def build_app() -> gr.Blocks:
             except RuntimeError as e:
                 raise gr.Error(f"Génération échouée : {e}")
 
-            import tempfile
+            import os, tempfile
+            # On ne garde qu'un seul fichier temporaire à la fois — supprime le précédent
+            prev = _last_tmp.get("path")
+            if prev and os.path.exists(prev):
+                try:
+                    os.remove(prev)
+                except OSError:
+                    pass
             tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
             tmp.write(audio_bytes)
             tmp.close()
+            _last_tmp["path"] = tmp.name
 
             return (
                 tmp.name,
