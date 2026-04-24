@@ -336,4 +336,8 @@ def launch(password: str | None = None) -> None:
         auth_message="Entre tes identifiants pour accéder à Voice Clone Studio",
         show_error=True,  # expose les tracebacks des handlers dans l'UI
         debug=True,       # active les logs verbeux dans la cellule Colab
+        # Gradio refuse par défaut de servir des fichiers hors cwd/tmp.
+        # On autorise explicitement les dossiers Drive où vivent nos voix
+        # uploadées et nos outputs.
+        allowed_paths=[config.VOICES_DIR, config.OUTPUTS_DIR],
     )
