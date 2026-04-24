@@ -36,3 +36,18 @@ def make_wav_bytes(duration_sec: float = 5.0, sample_rate: int = 22050) -> bytes
     buf = io.BytesIO()
     sf.write(buf, audio, sample_rate, format="WAV")
     return buf.getvalue()
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip les tests GPU si torch.cuda n'est pas dispo."""
+    try:
+        import torch
+        has_gpu = torch.cuda.is_available()
+    except ImportError:
+        has_gpu = False
+
+    if not has_gpu:
+        skip_gpu = pytest.mark.skip(reason="GPU non disponible")
+        for item in items:
+            if "gpu" in item.keywords:
+                item.add_marker(skip_gpu)
