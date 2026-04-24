@@ -1,9 +1,34 @@
 """Construction de l'UI Gradio Voice Clone Studio."""
 from __future__ import annotations
 
+import functools
+import traceback
+
 import gradio as gr
 
 from voice_studio import config
+
+
+def _log_errors(fn):
+    """Décorateur : imprime la traceback complète sur stdout + re-raise.
+
+    Gradio renvoie souvent juste 'Erreur' sans détails. Ce wrapper s'assure
+    que le traceback Python atterrit dans la sortie de la cellule Colab.
+    """
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except gr.Error:
+            # gr.Error est déjà prévu pour être affiché dans l'UI → ne pas polluer
+            raise
+        except Exception:
+            print(f"\n[ERROR] handler {fn.__name__} a crashé :")
+            traceback.print_exc()
+            print("")
+            raise
+
+    return wrapper
 
 
 CSS = """
@@ -86,6 +111,7 @@ def build_app() -> gr.Blocks:
         last_voice_state = gr.State(value=None)
 
         # --- Helpers ---
+        @_log_errors
         def _refresh_voice_list():
             from voice_studio import voices as voices_mod
             all_voices = voices_mod.list_all()
@@ -95,6 +121,7 @@ def build_app() -> gr.Blocks:
             )
 
         # --- Event: toggle preset vs upload ---
+        @_log_errors
         def on_mode_change(mode):
             if mode == "Préchargée":
                 return gr.Group(visible=False), gr.Dropdown(visible=True), gr.Audio(visible=True)
@@ -107,6 +134,7 @@ def build_app() -> gr.Blocks:
         )
 
         # --- Event: voice selection → preview ---
+        @_log_errors
         def on_voice_selected(voice_id):
             if not voice_id:
                 return None
@@ -124,6 +152,7 @@ def build_app() -> gr.Blocks:
         )
 
         # --- Event: char count live + toggle du bouton Générer ---
+        @_log_errors
         def on_text_change(text):
             count = len(text or "")
             color = "red" if count > config.MAX_TEXT_LENGTH else "inherit"
@@ -134,6 +163,7 @@ def build_app() -> gr.Blocks:
         text_input.change(on_text_change, inputs=[text_input], outputs=[char_count, generate_btn])
 
         # --- Event: upload ---
+        @_log_errors
         def on_upload(file_obj, name):
             from voice_studio import voices as voices_mod
             if not file_obj:
@@ -170,6 +200,7 @@ def build_app() -> gr.Blocks:
             stripped = (original_len - len(cleaned)) / original_len
             return cleaned.strip(), stripped
 
+        @_log_errors
         def on_generate(voice_id, text):
             from voice_studio import tts, voices as voices_mod
             if not text or not text.strip():
@@ -226,6 +257,7 @@ def build_app() -> gr.Blocks:
         )
 
         # --- Event: save drive ---
+        @_log_errors
         def on_save_drive(audio_bytes, voice_name):
             from datetime import datetime
             from voice_studio import drive as drive_mod
@@ -256,6 +288,7 @@ def build_app() -> gr.Blocks:
         )
 
         # --- Load initial : si aucune voix, bascule direct sur l'upload ---
+        @_log_errors
         def _initial_load():
             from voice_studio import voices as voices_mod
             all_voices = voices_mod.list_all()
@@ -301,4 +334,6 @@ def launch(password: str | None = None) -> None:
         share=True,
         auth=(config.GRADIO_USERNAME, effective_password),
         auth_message="Entre tes identifiants pour accéder à Voice Clone Studio",
+        show_error=True,  # expose les tracebacks des handlers dans l'UI
+        debug=True,       # active les logs verbeux dans la cellule Colab
     )

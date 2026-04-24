@@ -67,6 +67,15 @@ def _format_size(num_bytes: int) -> str:
     return f"{num_bytes} o"
 
 
+_FORMAT_TO_EXT = {
+    "WAV": ".wav",
+    "FLAC": ".flac",
+    "OGG": ".ogg",
+    "MPEG": ".mp3",
+    "MP3": ".mp3",
+}
+
+
 def add_uploaded(audio_bytes: bytes, name: str) -> Voice:
     """Valide et stocke une voix uploadée dans VOICES_DIR."""
     # Validation taille
@@ -93,10 +102,11 @@ def add_uploaded(audio_bytes: bytes, name: str) -> Voice:
     slug = _slugify(name)
     final_name = _unique_name(slug)
 
-    # Écrire
+    # Écrire avec l'extension qui correspond vraiment au contenu
+    ext = _FORMAT_TO_EXT.get(info.format, ".wav")
     voices_dir = Path(config.VOICES_DIR)
     voices_dir.mkdir(parents=True, exist_ok=True)
-    target = voices_dir / f"{final_name}.wav"
+    target = voices_dir / f"{final_name}{ext}"
     target.write_bytes(audio_bytes)
 
     return Voice(
@@ -108,18 +118,23 @@ def add_uploaded(audio_bytes: bytes, name: str) -> Voice:
 
 
 def list_uploaded() -> list[Voice]:
-    """Scanne VOICES_DIR et retourne la liste."""
+    """Scanne VOICES_DIR et retourne la liste des fichiers audio valides."""
     voices_dir = Path(config.VOICES_DIR)
     if not voices_dir.is_dir():
         return []
+    audio_extensions = (".wav", ".mp3", ".flac", ".ogg")
+    files = sorted(
+        p for p in voices_dir.iterdir()
+        if p.is_file() and p.suffix.lower() in audio_extensions
+    )
     return [
         Voice(
-            id=f"uploaded:{wav.stem}",
-            name=wav.stem,
-            audio_path=str(wav),
+            id=f"uploaded:{p.stem}",
+            name=p.stem,
+            audio_path=str(p),
             source="uploaded",
         )
-        for wav in sorted(voices_dir.glob("*.wav"))
+        for p in files
     ]
 
 
