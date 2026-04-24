@@ -34,16 +34,52 @@ def _log_errors(fn):
 CSS = """
 .title { text-align: center; font-size: 2em; margin-bottom: 0.2em; }
 .subtitle { text-align: center; color: #888; margin-bottom: 1em; }
-.credit {
-    text-align: center;
-    color: #666;
-    font-size: 0.85em;
-    margin-top: 2.5em;
-    padding-top: 1em;
-    border-top: 1px solid #333;
-}
-.credit a { color: #888; text-decoration: none; }
 #generate-btn { min-height: 60px; font-size: 1.1em; }
+
+/* --- Splash screen (fade auto après 3s) --- */
+.splash-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgb(15, 23, 42);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 99999;
+    animation: splash-fade 3.2s forwards ease-out;
+    pointer-events: none;
+    opacity: 0;
+}
+.splash-hearts {
+    font-size: 2.5em;
+    margin-bottom: 0.3em;
+    animation: splash-heartbeat 1.4s ease-in-out infinite;
+}
+.splash-text {
+    font-size: 1.1em;
+    color: #cbd5e1;
+    margin-bottom: 0.3em;
+    letter-spacing: 0.05em;
+}
+.splash-name {
+    font-size: 2.4em;
+    font-weight: 800;
+    background: linear-gradient(90deg, #f43f5e 0%, #fb7185 50%, #fda4af 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    letter-spacing: 0.04em;
+}
+@keyframes splash-fade {
+    0%   { opacity: 0; }
+    12%  { opacity: 1; }
+    78%  { opacity: 1; }
+    100% { opacity: 0; visibility: hidden; }
+}
+@keyframes splash-heartbeat {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.15); }
+}
 """
 
 # Référence vers le dernier .wav temporaire servi à Gradio.
@@ -60,6 +96,17 @@ def build_app() -> gr.Blocks:
         ),
         css=CSS,
     ) as app:
+        # --- Splash screen (CSS-only, disparaît tout seul après ~3s) ---
+        gr.HTML(
+            """
+            <div class='splash-overlay'>
+              <div class='splash-hearts'>❤️</div>
+              <div class='splash-text'>Fait avec amour par</div>
+              <div class='splash-name'>Aghiles A MANSEUR</div>
+            </div>
+            """
+        )
+
         gr.HTML("<div class='title'>🎤 Le Studio Vocal de Nordine</div>")
         gr.HTML("<div class='subtitle'>Clone n'importe quelle voix pour tes TikToks</div>")
 
@@ -339,11 +386,6 @@ def build_app() -> gr.Blocks:
         app.load(
             _initial_load,
             outputs=[voice_mode, upload_group, voice_dropdown, voice_preview],
-        )
-
-        # --- Footer ---
-        gr.HTML(
-            "<div class='credit'>Fait avec ❤️ par <strong>Aghiles A MANSEUR</strong></div>"
         )
 
     return app
