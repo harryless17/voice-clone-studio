@@ -121,3 +121,15 @@ def list_uploaded() -> list[Voice]:
         )
         for wav in sorted(voices_dir.glob("*.wav"))
     ]
+
+
+def list_all() -> list[Voice]:
+    """Presets + uploaded, triés par name."""
+    return sorted(list_presets() + list_uploaded(), key=lambda v: v.name)
+
+
+def get_by_id(voice_id: str) -> Voice:
+    for v in list_all():
+        if v.id == voice_id:
+            return v
+    raise KeyError(f"Voice inconnue: {voice_id}")

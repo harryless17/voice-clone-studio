@@ -57,3 +57,25 @@ def test_reject_too_large_upload(tmp_drive, tmp_presets, monkeypatch):
     wav = make_wav_bytes(5.0)
     with pytest.raises(ValueError, match="trop gros"):
         voices.add_uploaded(wav, "huge")
+
+
+def test_get_by_id_returns_voice(tmp_drive, tmp_presets):
+    voices.load_presets()
+    v = voices.get_by_id("preset:fake_preset")
+    assert v.name == "fake_preset"
+
+
+def test_get_by_id_missing_raises(tmp_drive, tmp_presets):
+    voices.load_presets()
+    with pytest.raises(KeyError):
+        voices.get_by_id("preset:does_not_exist")
+
+
+def test_list_all_combines_presets_and_uploaded(tmp_drive, tmp_presets):
+    voices.load_presets()
+    voices.add_uploaded(make_wav_bytes(5.0), "mbappe")
+
+    all_voices = voices.list_all()
+    ids = {v.id for v in all_voices}
+    assert "preset:fake_preset" in ids
+    assert "uploaded:mbappe" in ids
