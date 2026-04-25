@@ -357,24 +357,24 @@ label > span, label > .label-wrap {
     text-transform: none !important;
 }
 
-/* --- RADIO → SEGMENTED CONTROL (force flex row à toutes les tailles) --- */
-/* On cible tous les wraps possibles autour d'un radio group */
+/* --- RADIO → paire de VRAIS BOUTONS individuels (plus de track pill) --- */
+/* Le container : plus de pill, juste un flex layout */
 .gradio-container [role="radiogroup"],
 .gradio-container fieldset,
 .gradio-container .wrap-inner[role="radiogroup"],
 .gradio-container div:has(> label > input[type="radio"]),
 .gradio-container div:has(> input[type="radio"]) {
-    background: var(--bg-input) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 100px !important;
-    padding: 0.25rem !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
     display: flex !important;
     flex-direction: row !important;
     flex-wrap: nowrap !important;
-    gap: 0.25rem !important;
+    gap: 0.6rem !important;
     width: 100% !important;
 }
-/* Labels enfants : moitié-moitié, sur une même ligne */
+/* Chaque label = un bouton individuel avec fond + border + ombre */
 .gradio-container [role="radiogroup"] > label,
 .gradio-container fieldset > label,
 .gradio-container .wrap-inner[role="radiogroup"] > label,
@@ -382,36 +382,63 @@ label > span, label > .label-wrap {
     flex: 1 1 0 !important;
     width: auto !important;
     margin: 0 !important;
-    padding: 0.7rem 0.6rem !important;
-    border-radius: 100px !important;
+    padding: 0.95rem 1rem !important;
+    border-radius: 12px !important;
     cursor: pointer !important;
-    transition: background 0.25s ease, color 0.25s ease !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
     text-align: center !important;
-    background: transparent !important;
-    border: none !important;
+    background: var(--bg-soft) !important;
+    border: 1px solid var(--border) !important;
     color: var(--text-secondary) !important;
     font-family: 'Instrument Sans', sans-serif !important;
     font-weight: 500 !important;
-    font-size: 0.82rem !important;
-    letter-spacing: 0.02em !important;
-    position: relative;
+    font-size: 0.88rem !important;
+    letter-spacing: 0 !important;
+    position: relative !important;
     text-transform: none !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 0.4rem !important;
+    gap: 0.5rem !important;
     min-width: 0 !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.015) !important;
+    user-select: none !important;
+}
+/* HOVER (non-sélectionné) : border amber + lift */
+.gradio-container [role="radiogroup"] > label:hover:not(.selected):not(:has(input:checked)),
+.gradio-container fieldset > label:hover:not(.selected):not(:has(input:checked)),
+.gradio-container div:has(> input[type="radio"]) > label:hover:not(:has(input:checked)) {
+    border-color: var(--amber-dim) !important;
+    color: var(--amber-glow) !important;
+    background: var(--bg-elevated) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 14px -3px rgba(232, 165, 74, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+}
+/* ACTIVE (pressed) : enfoncé */
+.gradio-container [role="radiogroup"] > label:active,
+.gradio-container fieldset > label:active,
+.gradio-container div:has(> input[type="radio"]) > label:active {
+    transform: translateY(0) scale(0.98) !important;
+    transition-duration: 0.08s !important;
+}
+/* FOCUS (clavier) : ring ambré pour accessibilité */
+.gradio-container [role="radiogroup"] > label:focus-within,
+.gradio-container fieldset > label:focus-within {
+    box-shadow: 0 0 0 3px rgba(232, 165, 74, 0.25), 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+    outline: none !important;
 }
 /* Inputs cachés */
 .gradio-container [role="radiogroup"] input[type="radio"],
 .gradio-container fieldset input[type="radio"],
 .gradio-container div:has(> input[type="radio"]) input[type="radio"] {
     display: none !important;
+    position: absolute !important;
+    opacity: 0 !important;
 }
-/* État sélectionné */
+/* SÉLECTIONNÉ : gradient cuivre + glow + lift */
 .gradio-container [role="radiogroup"] > label.selected,
 .gradio-container [role="radiogroup"] > label:has(input:checked),
 .gradio-container fieldset > label.selected,
@@ -420,7 +447,19 @@ label > span, label > .label-wrap {
     background: linear-gradient(135deg, var(--amber) 0%, var(--crimson) 100%) !important;
     color: #1a0f04 !important;
     font-weight: 700 !important;
-    box-shadow: 0 2px 12px -2px rgba(232, 165, 74, 0.35), 0 1px 0 rgba(255, 220, 170, 0.3) inset !important;
+    border-color: var(--amber) !important;
+    transform: translateY(-1px) !important;
+    box-shadow:
+        0 6px 24px -6px rgba(232, 165, 74, 0.55),
+        0 1px 0 rgba(255, 220, 170, 0.4) inset !important;
+}
+/* Sélectionné + hover : glow renforcé */
+.gradio-container [role="radiogroup"] > label.selected:hover,
+.gradio-container [role="radiogroup"] > label:has(input:checked):hover {
+    box-shadow:
+        0 8px 28px -4px rgba(232, 165, 74, 0.7),
+        0 1px 0 rgba(255, 220, 170, 0.4) inset !important;
+    transform: translateY(-2px) !important;
 }
 
 /* --- DROPDOWN : cacher double chevron --- */
