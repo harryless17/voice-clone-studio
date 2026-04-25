@@ -741,7 +741,7 @@ def build_app() -> gr.Blocks:
                 gr.Markdown(
                     "*Une seule personne, pas de musique/bruit, 10-30 secondes suffisent.*"
                 )
-                upload_btn = gr.Button("Ajouter à la banque")
+                upload_btn = gr.Button("Ajouter à la banque", interactive=False)
                 upload_status = gr.Markdown(visible=False)
 
         # ----- Texte + templates -----
@@ -825,25 +825,35 @@ def build_app() -> gr.Blocks:
             outputs=[upload_group, voice_dropdown, voice_preview],
         )
 
+        def _is_text_valid(text: str) -> bool:
+            count = len(text or "")
+            return 0 < count <= config.MAX_TEXT_LENGTH and bool((text or "").strip())
+
+        def _generate_btn_state(voice_id, text):
+            """Activé uniquement si une voix est sélectionnée ET le texte valide."""
+            return gr.Button(interactive=bool(voice_id) and _is_text_valid(text))
+
         @_log_errors
-        def on_voice_selected(voice_id):
-            if not voice_id:
-                return None
+        def on_voice_selected(voice_id, text):
+            """Update preview audio + état bouton Générer."""
             from voice_studio import voices as voices_mod
-            try:
-                v = voices_mod.get_by_id(voice_id)
-                return v.audio_path
-            except KeyError:
-                return None
+            preview_path = None
+            if voice_id:
+                try:
+                    preview_path = voices_mod.get_by_id(voice_id).audio_path
+                except KeyError:
+                    pass
+            return preview_path, _generate_btn_state(voice_id, text)
 
         voice_dropdown.change(
             on_voice_selected,
-            inputs=[voice_dropdown],
-            outputs=[voice_preview],
+            inputs=[voice_dropdown, text_input],
+            outputs=[voice_preview, generate_btn],
         )
 
         @_log_errors
-        def on_text_change(text):
+        def on_text_change(text, voice_id):
+            """Update char counter + état bouton Générer."""
             count = len(text or "")
             over = count > config.MAX_TEXT_LENGTH
             color = "var(--crimson)" if over else "var(--text-secondary)"
@@ -851,10 +861,13 @@ def build_app() -> gr.Blocks:
                 f"<code style='color:{color};font-size:0.75rem;"
                 f"letter-spacing:0.1em;'>{count}/{config.MAX_TEXT_LENGTH}</code>"
             )
-            is_valid = 0 < count <= config.MAX_TEXT_LENGTH and bool((text or "").strip())
-            return md, gr.Button(interactive=is_valid)
+            return md, _generate_btn_state(voice_id, text)
 
-        text_input.change(on_text_change, inputs=[text_input], outputs=[char_count, generate_btn])
+        text_input.change(
+            on_text_change,
+            inputs=[text_input, voice_dropdown],
+            outputs=[char_count, generate_btn],
+        )
 
         # Template chips → injectent le texte
         for btn, (label, template_text) in zip(template_btns, TEMPLATES):
@@ -864,28 +877,57 @@ def build_app() -> gr.Blocks:
                 outputs=[text_input],
             )
 
+        # Upload button n'est cliquable que si fichier + nom fournis
         @_log_errors
-        def on_upload(file_obj, name):
+        def _upload_btn_state(file_obj, name):
+            has_file = file_obj is not None
+            has_name = bool(name and name.strip())
+            return gr.Button(interactive=has_file and has_name)
+
+        upload_file.change(
+            _upload_btn_state,
+            inputs=[upload_file, upload_name],
+            outputs=[upload_btn],
+        )
+        upload_name.change(
+            _upload_btn_state,
+            inputs=[upload_file, upload_name],
+            outputs=[upload_btn],
+        )
+
+        @_log_errors
+        def on_upload(file_obj, name, current_text):
             from voice_studio import voices as voices_mod
-            if not file_obj:
-                return gr.Markdown("⚠️ Choisis un fichier", visible=True), gr.update()
-            if not name or not name.strip():
-                return gr.Markdown("⚠️ Donne un nom à la voix", visible=True), gr.update()
             try:
                 with open(file_obj.name, "rb") as f:
                     audio_bytes = f.read()
                 v = voices_mod.add_uploaded(audio_bytes, name)
-                return (
-                    gr.Markdown(f"✅ Voix **{v.name}** ajoutée", visible=True),
-                    _refresh_voice_list(),
-                )
             except ValueError as e:
-                return gr.Markdown(f"❌ {e}", visible=True), gr.update()
+                return (
+                    gr.Markdown(f"❌ {e}", visible=True),
+                    gr.update(),       # dropdown inchangé
+                    gr.update(),       # preview inchangé
+                    gr.update(),       # generate_btn inchangé
+                    gr.update(),       # upload_btn inchangé
+                )
+            # Succès : refresh dropdown + sélectionne la nouvelle voix
+            all_voices = voices_mod.list_all()
+            new_dropdown = gr.Dropdown(
+                choices=[(voice.name, voice.id) for voice in all_voices],
+                value=v.id,
+            )
+            return (
+                gr.Markdown(f"✅ Voix **{v.name}** ajoutée", visible=True),
+                new_dropdown,
+                v.audio_path,                                  # preview maj
+                _generate_btn_state(v.id, current_text),       # generate_btn réévalué
+                gr.Button(interactive=False),                  # upload_btn re-disabled
+            )
 
         upload_btn.click(
             on_upload,
-            inputs=[upload_file, upload_name],
-            outputs=[upload_status, voice_dropdown],
+            inputs=[upload_file, upload_name, text_input],
+            outputs=[upload_status, voice_dropdown, voice_preview, generate_btn, upload_btn],
         )
 
         # Sanitization (strippe emojis, garde la ponctuation FR)
