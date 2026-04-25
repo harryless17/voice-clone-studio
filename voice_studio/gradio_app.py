@@ -357,11 +357,13 @@ label > span, label > .label-wrap {
     text-transform: none !important;
 }
 
-/* --- RADIO → SEGMENTED CONTROL --- */
-/* Gradio 5 utilise [role=radiogroup] ou .wrap-inner comme container */
+/* --- RADIO → SEGMENTED CONTROL (force flex row à toutes les tailles) --- */
+/* On cible tous les wraps possibles autour d'un radio group */
 .gradio-container [role="radiogroup"],
 .gradio-container fieldset,
-.gradio-container .wrap-inner[role="radiogroup"] {
+.gradio-container .wrap-inner[role="radiogroup"],
+.gradio-container div:has(> label > input[type="radio"]),
+.gradio-container div:has(> input[type="radio"]) {
     background: var(--bg-input) !important;
     border: 1px solid var(--border) !important;
     border-radius: 100px !important;
@@ -372,12 +374,15 @@ label > span, label > .label-wrap {
     gap: 0.25rem !important;
     width: 100% !important;
 }
+/* Labels enfants : moitié-moitié, sur une même ligne */
 .gradio-container [role="radiogroup"] > label,
 .gradio-container fieldset > label,
-.gradio-container .wrap-inner[role="radiogroup"] > label {
+.gradio-container .wrap-inner[role="radiogroup"] > label,
+.gradio-container div:has(> input[type="radio"]) > label {
     flex: 1 1 0 !important;
+    width: auto !important;
     margin: 0 !important;
-    padding: 0.7rem 0.8rem !important;
+    padding: 0.7rem 0.6rem !important;
     border-radius: 100px !important;
     cursor: pointer !important;
     transition: background 0.25s ease, color 0.25s ease !important;
@@ -396,16 +401,22 @@ label > span, label > .label-wrap {
     justify-content: center !important;
     gap: 0.4rem !important;
     min-width: 0 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
-.gradio-container [role="radiogroup"] > label input[type="radio"],
-.gradio-container fieldset > label input[type="radio"],
-.gradio-container .wrap-inner[role="radiogroup"] > label input[type="radio"] {
+/* Inputs cachés */
+.gradio-container [role="radiogroup"] input[type="radio"],
+.gradio-container fieldset input[type="radio"],
+.gradio-container div:has(> input[type="radio"]) input[type="radio"] {
     display: none !important;
 }
+/* État sélectionné */
 .gradio-container [role="radiogroup"] > label.selected,
 .gradio-container [role="radiogroup"] > label:has(input:checked),
 .gradio-container fieldset > label.selected,
-.gradio-container fieldset > label:has(input:checked) {
+.gradio-container fieldset > label:has(input:checked),
+.gradio-container div:has(> input[type="radio"]) > label:has(input:checked) {
     background: linear-gradient(135deg, var(--amber) 0%, var(--crimson) 100%) !important;
     color: #1a0f04 !important;
     font-weight: 700 !important;
@@ -457,39 +468,38 @@ label > span, label > .label-wrap {
 }
 .result-wrap audio { filter: sepia(0.2) saturate(1.1); }
 
-/* --- TEMPLATES chips : toujours en ligne qui wrap, même sur mobile --- */
+/* --- TEMPLATES : CSS Grid auto-fit pour un vrai layout en grille --- */
 .gradio-container .templates-row,
 .gradio-container .row.templates-row,
 .gradio-container div.templates-row {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
-    gap: 0.4rem !important;
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)) !important;
+    gap: 0.5rem !important;
     margin-bottom: 1rem !important;
     width: 100% !important;
 }
-.gradio-container .templates-row > *,
-.gradio-container .template-chip {
-    flex: 0 0 auto !important;
-    width: auto !important;
-    max-width: max-content !important;
+.gradio-container .templates-row > * {
+    width: 100% !important;
+    min-width: 0 !important;
 }
 button.template-chip, .template-chip, .template-chip > button {
     font-family: 'Instrument Sans', sans-serif !important;
     font-size: 0.78rem !important;
     letter-spacing: 0 !important;
     text-transform: none !important;
-    padding: 0.45rem 0.95rem !important;
-    background: transparent !important;
+    padding: 0.55rem 0.75rem !important;
+    background: var(--bg-soft) !important;
     border: 1px solid var(--border) !important;
-    border-radius: 100px !important;
+    border-radius: 12px !important;
     color: var(--text-secondary) !important;
     cursor: pointer !important;
     transition: all 0.2s ease !important;
     min-height: auto !important;
     font-weight: 500 !important;
-    flex: 0 0 auto !important;
-    width: auto !important;
+    width: 100% !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 button.template-chip:hover, .template-chip:hover, .template-chip > button:hover {
     border-color: var(--amber) !important;
@@ -541,8 +551,10 @@ button.primary:disabled, #generate-btn:disabled {
     opacity: 1 !important;
 }
 
-/* Secondary buttons (regénérer, download, save drive) */
-button.secondary, .gradio-container button:not(.primary):not(#generate-btn):not(.template-chip):not(.template-chip > button) {
+/* Secondary buttons — on cible NOS boutons, pas les contrôles audio internes */
+.result-actions button,
+.upload-group button,
+.gradio-container button.secondary {
     background: var(--bg-elevated) !important;
     color: var(--text-primary) !important;
     border: 1px solid var(--border) !important;
@@ -554,10 +566,42 @@ button.secondary, .gradio-container button:not(.primary):not(#generate-btn):not(
     padding: 0.6rem 1rem !important;
     min-height: auto !important;
 }
-button.secondary:hover:not(:disabled) {
+.result-actions button:hover:not(:disabled),
+.upload-group button:hover:not(:disabled),
+.gradio-container button.secondary:hover:not(:disabled) {
     border-color: var(--border-hot) !important;
     color: var(--amber-glow) !important;
     background: rgba(232, 165, 74, 0.04) !important;
+}
+
+/* --- AUDIO PLAYER CONTROLS : ne PAS hériter du style button generic --- */
+.gradio-container [data-testid="waveform"] button,
+.gradio-container .waveform button,
+.gradio-container [class*="audio"] .controls button,
+.gradio-container [class*="audio"] [class*="control"] button,
+.gradio-container audio + button,
+.gradio-container .audio-container button {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--text-primary) !important;
+    padding: 0.35rem !important;
+    min-height: auto !important;
+    min-width: auto !important;
+    border-radius: 50% !important;
+}
+.gradio-container [data-testid="waveform"] button svg,
+.gradio-container .waveform button svg,
+.gradio-container [class*="audio"] button svg {
+    color: var(--text-primary) !important;
+    fill: currentColor !important;
+    stroke: currentColor !important;
+}
+.gradio-container [data-testid="waveform"] button:hover:not(:disabled),
+.gradio-container .waveform button:hover:not(:disabled),
+.gradio-container [class*="audio"] button:hover:not(:disabled) {
+    background: rgba(232, 165, 74, 0.1) !important;
+    color: var(--amber-glow) !important;
 }
 
 /* --- ACCORDION (réglages avancés) --- */
@@ -719,6 +763,44 @@ button.secondary:hover:not(:disabled) {
     line-height: 1.45;
 }
 .history-audio { width: 100%; height: 36px; }
+
+/* --- COL-CREATE : flex column avec gap uniforme (grid feel) --- */
+.gradio-container .col-create,
+.gradio-container .col-setup {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1rem !important;
+}
+.gradio-container .col-create > *,
+.gradio-container .col-setup > * {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+/* --- RESULT empty state : placeholder sympa + audio invisible tant que vide --- */
+.result-placeholder {
+    min-height: 140px;
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    padding: 2rem 1.5rem;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 1rem;
+    color: var(--text-dim);
+    text-align: center;
+    border: 1px dashed var(--border);
+    border-radius: 14px;
+    background: rgba(232, 165, 74, 0.015);
+}
+.result-placeholder .icon {
+    font-size: 1.8rem;
+    opacity: 0.5;
+    filter: grayscale(0.3);
+}
+.result-placeholder em { color: var(--amber-dim); font-weight: 500; }
 
 /* --- FOOTER --- */
 footer { display: none !important; }
@@ -1043,14 +1125,23 @@ def build_app() -> gr.Blocks:
 
                 # --- Bouton générer ---
                 generate_btn = gr.Button(
-                    "Générer la piste",
+                    "🎙  Générer la piste",
                     variant="primary",
                     elem_id="generate-btn",
                     interactive=False,
                 )
 
-                # --- Résultat ---
-                with gr.Column(elem_classes=["result-wrap"]):
+                # --- Résultat : placeholder OU audio réel ---
+                result_placeholder = gr.HTML(
+                    """
+                    <div class='result-placeholder'>
+                      <div class='icon'>🎧</div>
+                      <div>Ta piste apparaîtra ici<br><em>après la première génération</em></div>
+                    </div>
+                    """,
+                    visible=True,
+                )
+                with gr.Column(elem_classes=["result-wrap"], visible=False) as result_col:
                     output_audio = gr.Audio(
                         label="La dernière piste",
                         interactive=False,
@@ -1260,6 +1351,8 @@ def build_app() -> gr.Blocks:
                 gr.Button(visible=True),
                 gr.DownloadButton(value=tmp.name, visible=True),
                 gr.Button(visible=True),
+                gr.HTML(visible=False),      # hide placeholder
+                gr.Column(visible=True),     # show result_col
             )
 
         generate_outputs = [
@@ -1274,6 +1367,8 @@ def build_app() -> gr.Blocks:
             regenerate_btn,
             download_btn,
             save_drive_btn,
+            result_placeholder,
+            result_col,
         ]
 
         generate_btn.click(
