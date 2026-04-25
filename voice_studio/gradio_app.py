@@ -157,8 +157,25 @@ body::before {
     z-index: 1;
     box-sizing: border-box !important;
     overflow-x: hidden !important;
+    overflow-y: visible !important;
 }
 .gradio-container > *, .gradio-container .main { max-width: 100% !important; }
+
+/* --- KILL les scrollbars internes de Gradio (hero + wraps HTML) --- */
+.gradio-container .html-container,
+.gradio-container .html,
+.gradio-container > .main,
+.gradio-container > .main > div,
+.gradio-container .block,
+.gradio-container .form {
+    overflow: visible !important;
+    max-height: none !important;
+    min-height: 0 !important;
+}
+.hero, .bg-decor, .history-section, .custom-footer, .section {
+    overflow: visible !important;
+    max-height: none !important;
+}
 
 /* --- HERO --- */
 .hero {
@@ -223,17 +240,24 @@ body::before {
     position: absolute;
     left: 0;
     right: 0;
-    bottom: -60px;
+    bottom: 0;
+    height: 60px;
     opacity: 0.28;
     pointer-events: none;
-    z-index: -1;
+    z-index: 0;
+    overflow: visible;
 }
-.hero-wave svg { width: 100%; height: 80px; }
+.hero-wave svg {
+    width: 100%;
+    height: 60px;
+    display: block;
+}
 .hero-wave path {
     stroke: var(--amber);
     fill: none;
     stroke-width: 1;
 }
+.hero { padding-bottom: 70px !important; }
 
 /* --- LAYOUT : 2 COLONNES sur desktop --- */
 .main-grid {
@@ -334,18 +358,26 @@ label > span, label > .label-wrap {
 }
 
 /* --- RADIO → SEGMENTED CONTROL --- */
-fieldset {
+/* Gradio 5 utilise [role=radiogroup] ou .wrap-inner comme container */
+.gradio-container [role="radiogroup"],
+.gradio-container fieldset,
+.gradio-container .wrap-inner[role="radiogroup"] {
     background: var(--bg-input) !important;
     border: 1px solid var(--border) !important;
     border-radius: 100px !important;
     padding: 0.25rem !important;
     display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
     gap: 0.25rem !important;
+    width: 100% !important;
 }
-fieldset > label, fieldset > .wrap {
-    flex: 1 !important;
+.gradio-container [role="radiogroup"] > label,
+.gradio-container fieldset > label,
+.gradio-container .wrap-inner[role="radiogroup"] > label {
+    flex: 1 1 0 !important;
     margin: 0 !important;
-    padding: 0.7rem 1rem !important;
+    padding: 0.7rem 0.8rem !important;
     border-radius: 100px !important;
     cursor: pointer !important;
     transition: background 0.25s ease, color 0.25s ease !important;
@@ -359,12 +391,21 @@ fieldset > label, fieldset > .wrap {
     letter-spacing: 0.02em !important;
     position: relative;
     text-transform: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.4rem !important;
+    min-width: 0 !important;
 }
-fieldset > label input[type="radio"] {
+.gradio-container [role="radiogroup"] > label input[type="radio"],
+.gradio-container fieldset > label input[type="radio"],
+.gradio-container .wrap-inner[role="radiogroup"] > label input[type="radio"] {
     display: none !important;
 }
-fieldset > label.selected,
-fieldset > label:has(input:checked) {
+.gradio-container [role="radiogroup"] > label.selected,
+.gradio-container [role="radiogroup"] > label:has(input:checked),
+.gradio-container fieldset > label.selected,
+.gradio-container fieldset > label:has(input:checked) {
     background: linear-gradient(135deg, var(--amber) 0%, var(--crimson) 100%) !important;
     color: #1a0f04 !important;
     font-weight: 700 !important;
@@ -416,15 +457,24 @@ fieldset > label:has(input:checked) {
 }
 .result-wrap audio { filter: sepia(0.2) saturate(1.1); }
 
-/* --- TEMPLATES chips : plus petits, plus élégants --- */
-.templates-row {
+/* --- TEMPLATES chips : toujours en ligne qui wrap, même sur mobile --- */
+.gradio-container .templates-row,
+.gradio-container .row.templates-row,
+.gradio-container div.templates-row {
     display: flex !important;
+    flex-direction: row !important;
     flex-wrap: wrap !important;
     gap: 0.4rem !important;
     margin-bottom: 1rem !important;
     width: 100% !important;
 }
-.template-chip, .template-chip > button {
+.gradio-container .templates-row > *,
+.gradio-container .template-chip {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    max-width: max-content !important;
+}
+button.template-chip, .template-chip, .template-chip > button {
     font-family: 'Instrument Sans', sans-serif !important;
     font-size: 0.78rem !important;
     letter-spacing: 0 !important;
@@ -441,7 +491,7 @@ fieldset > label:has(input:checked) {
     flex: 0 0 auto !important;
     width: auto !important;
 }
-.template-chip:hover, .template-chip > button:hover {
+button.template-chip:hover, .template-chip:hover, .template-chip > button:hover {
     border-color: var(--amber) !important;
     color: var(--amber-glow) !important;
     background: rgba(232, 165, 74, 0.06) !important;
